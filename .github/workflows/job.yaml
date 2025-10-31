@@ -1,0 +1,43 @@
+# .github/workflows/job-bot.yml
+
+name: Bot de Vagas Diário
+
+on:
+  # 1. Permite que você rode este workflow manualmente pela aba "Actions"
+  workflow_dispatch:
+
+  # 2. Agenda a execução automática
+  schedule:
+    # Roda todo dia às 11:00 UTC.
+    # (Isso corresponde às 08:00 no fuso de Brasília, GMT-3)
+    # Formato: "minuto hora dia(mês) mês dia(semana)"
+    - cron: '0 11 * * *'
+
+jobs:
+  run-job-bot:
+    # Usamos a máquina virtual mais recente do Ubuntu
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Baixa o código do seu repositório para a máquina virtual
+      - name: 1. Checkout do Repositório
+        uses: actions/checkout@v4
+
+      # 2. Configura o ambiente Go (você pode mudar a versão)
+      - name: 2. Configurar Ambiente Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21' # Use a versão do Go do seu go.mod
+
+      # 3. Executa o bot. As variáveis de 'env' vêm dos Secrets do GitHub
+      - name: 3. Executar o Bot de Vagas
+        run: go run ./cmd/bot/main.go
+        env:
+          # Nossas variáveis de ambiente são preenchidas pelos Secrets
+          LINKEDIN_RSS_URL: ${{ secrets.LINKEDIN_RSS_URL }}
+          TRELLO_API_KEY: ${{ secrets.TRELLO_API_KEY }}
+          TRELLO_API_TOKEN: ${{ secrets.TRELLO_API_TOKEN }}
+          TRELLO_LIST_ID: ${{ secrets.TRELLO_LIST_ID }}
+          POSITIVE_KEYWORDS: ${{ secrets.POSITIVE_KEYWORDS }}
+          NEGATIVE_KEYWORDS: ${{ secrets.NEGATIVE_KEYWORDS }}
+          JOB_LIMIT: ${{ secrets.JOB_LIMIT }}
