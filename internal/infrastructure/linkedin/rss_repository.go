@@ -6,7 +6,7 @@ import (
 	"jobs-bot/internal/domain"
 	"net/http"
 	"time"
-	"github.com/jaytaylor/html2text"
+	strip "github.com/grokify/html-strip-tags-go"
 )
 
 type RssFeed struct {
@@ -49,10 +49,7 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 	}
 	var jobs []domain.Job
 	for _, item := range feed.Channel.Items {
-		plainDescription, err := html2text.FromString(item.Description, html2text.Options{PrettyTables: true})
-		if err != nil {
-			plainDescription = item.Description // Fallback to original if conversion fails
-		}
+		plainDescription := strip.StripTags(item.Description)
 		jobs = append(jobs, domain.Job{
 			Title: item.Title,
 			Link:  item.Link,

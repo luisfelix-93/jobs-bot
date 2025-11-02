@@ -12,5 +12,5 @@ type JobRepository interface {
 }
 
 type NotificationService interface {
-	Notify(job Job) error
+	Notify(job Job, analysis ResumeAnalysis) error
 }

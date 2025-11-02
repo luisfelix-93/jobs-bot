@@ -5,6 +5,7 @@ import (
 	"jobs-bot/internal/domain"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -24,16 +25,27 @@ func NewTrelloNotifier(apiKey, token, listID string) *TrelloNotifier {
 	}
 }
 
-func (t *TrelloNotifier) Notify(job domain.Job) error {
+func (t *TrelloNotifier) Notify(job domain.Job, analysis domain.ResumeAnalysis) error {
 	apiURL := "https://api.trello.com/1/cards"
 
-	cardDesc := fmt.Sprintf("Link da Vaga:\n&%s", job.Link)
+	// Crie uma descrição muito mais rica!
+	cardDesc := fmt.Sprintf(
+		"**Link da Vaga:**\n%s\n\n---\n\n**Compatibilidade: %.2f%%**\n\n**Palavras-Chave Encontradas:**\n`%s`\n\n**Palavras-Chave Faltando (Adicionar ao CV!):**\n`%s`",
+		job.Link,
+		analysis.MatchPercentage,
+		strings.Join(analysis.FoundKeywords, ", "),
+		strings.Join(analysis.MissingKeywords, ", "),
+	)
+
+	// Adicione a pontuação ao título do card
+	cardName := fmt.Sprintf("[%.f%%] %s", analysis.MatchPercentage, job.Title)
+
 	data := url.Values{}
 	data.Set("key", t.apiKey)
 	data.Set("token", t.token)
 	data.Set("idList", t.listID)
-	data.Set("name", job.Title)
-	data.Set("desc", cardDesc)
+	data.Set("name", cardName) // Título com a pontuação
+	data.Set("desc", cardDesc) // Descrição rica com a análise
 
 	resp, err := t.client.PostForm(apiURL, data)
 	if err != nil {
@@ -46,6 +58,5 @@ func (t *TrelloNotifier) Notify(job domain.Job) error {
 	}
 
 	fmt.Println("Notificação enviada com sucesso para Trello!")
-	
 	return nil
 }

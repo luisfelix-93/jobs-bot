@@ -17,6 +17,7 @@ type Config struct {
 	TrelloListID     string
 	PositiveKeywords []string
 	NegativeKeywords []string
+	ResumePath       string
 	JobLimit         int
 }
 
@@ -41,6 +42,7 @@ func LoadConfig() (*Config, error) {
 		TrelloListID:     getEnv("TRELLO_LIST_ID", ""),
 		PositiveKeywords: strings.Split(getEnv("POSITIVE_KEYWORDS", ""), ","),
 		NegativeKeywords: strings.Split(getEnv("NEGATIVE_KEYWORDS", ""), ","),
+		ResumePath:       getEnv("RESUME_PATH", ""),
 		JobLimit:         jobLimit,
 	}, nil
 }

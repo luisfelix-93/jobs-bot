@@ -6,18 +6,22 @@ import (
 )
 
 type JobService struct {
-	repo         domain.JobRepository
-	notifier     domain.NotificationService
-	filter       *domain.JobFilter
-	limit        int
+	repo          domain.JobRepository
+	notifier      domain.NotificationService
+	filter        *domain.JobFilter
+	analyzer      *domain.ResumeAnalyzer
+	resumeContent string
+	limit         int
 }
 
-func NewJobService(repo domain.JobRepository, notifier domain.NotificationService, filter *domain.JobFilter, limit int) *JobService {
+func NewJobService(repo domain.JobRepository, notifier domain.NotificationService, filter *domain.JobFilter, analyzer *domain.ResumeAnalyzer, resumeContent string, limit int) *JobService {
 	return &JobService{
-		repo:     repo,
-		notifier: notifier,
-		filter:   filter,
-		limit:    limit,
+		repo:          repo,
+		notifier:      notifier,
+		filter:        filter,
+		analyzer:      analyzer,
+		resumeContent: resumeContent,
+		limit:         limit,
 	}
 }
 
@@ -39,8 +43,10 @@ func (s *JobService) ProcessNewJobs() error {
 	}
 
 	for _, job := range bestJobs {
+		analysis := s.analyzer.Analyze(s.resumeContent, job.Description, s.filter.PositiveKeywords)
+		log.Printf("Análise para '%s': %.2f%% de compatibilidade.", job.Title, analysis.MatchPercentage)
 		log.Printf("Enviando vaga para o trello: %s", job.Title)
-		if err := s.notifier.Notify(job); err != nil {
+		if err := s.notifier.Notify(job, analysis); err != nil {
 			log.Printf("Erro ao enviar vaga para o trello: %v", err)
 		}
 	}
