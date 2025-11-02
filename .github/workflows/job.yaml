@@ -41,3 +41,4 @@ jobs:
           POSITIVE_KEYWORDS: ${{ secrets.POSITIVE_KEYWORDS }}
           NEGATIVE_KEYWORDS: ${{ secrets.NEGATIVE_KEYWORDS }}
           JOB_LIMIT: ${{ secrets.JOB_LIMIT }}
+          RESUME_PATH: ${{secrets.RESUME_PATH}}
