@@ -6,14 +6,16 @@ import (
 	"jobs-bot/internal/domain"
 	"net/http"
 	"time"
+	strip "github.com/grokify/html-strip-tags-go"
 )
 
 type RssFeed struct {
 	Channel struct {
 		Items []struct {
-			Title string `xml:"title"`
-			Link  string `xml:"link"`
-			GUID  string `xml:"guid"`
+			Title       string `xml:"title"`
+			Link        string `xml:"link"`
+			GUID        string `xml:"guid"`
+			Description string `xml:"description"`
 		} `xml:"item"`
 	} `xml:"channel"`
 }
@@ -47,10 +49,12 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 	}
 	var jobs []domain.Job
 	for _, item := range feed.Channel.Items {
+		plainDescription := strip.StripTags(item.Description)
 		jobs = append(jobs, domain.Job{
 			Title: item.Title,
 			Link:  item.Link,
 			GUID:  item.GUID,
+			Description: plainDescription,
 		})
 	}
 
