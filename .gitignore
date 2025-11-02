@@ -13,3 +13,5 @@
 
 # Environment file
 .env
+
+PR_SUMMARY.md
