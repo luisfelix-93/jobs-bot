@@ -1,26 +1,24 @@
 package jobicy
 
 import (
-	"encoding/xml"
+	"encoding/json"
 	"fmt"
 	"jobs-bot/internal/domain"
 	"net/http"
+	"strconv"
 	"time"
 )
 
-type jobicyItem struct {
-	Title       string `xml:"title"`
-	Link        string `xml:"link"`
-	GUID        string `xml:"guid"`
-	Description string `xml:"description"`
-	FullContent string `xml:"encoded"`     
-	Location    string `xml:"location"`
+type jobicyAPIResponse struct {
+	Jobs []jobicyJob `json:"jobs"`
 }
 
-type jobicyRss struct {
-	Channel struct {
-		Items []jobicyItem `xml:"item"`
-	} `xml:"channel"`
+type jobicyJob struct {
+	ID             int    `json:"id"`
+	URL            string `json:"url"`
+	JobTitle       string `json:"jobTitle"`
+	JobGeo         string `json:"jobGeo"`
+	JobDescription string `json:"jobDescription"`
 }
 
 type RssRepository struct {
@@ -36,29 +34,35 @@ func NewRssRepository(rssURL string) *RssRepository {
 }
 
 func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
-	res, err := r.client.Get(r.rssURL)
+	req, err := http.NewRequest("GET", r.rssURL, nil)
 	if err != nil {
-		return nil, fmt.Errorf("erro ao buscar feed Jobicy: %w", err)
+		return nil, fmt.Errorf("erro ao criar request para a API do Jobicy: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36")
+
+	res, err := r.client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("erro ao buscar dados da Jobicy API: %w", err)
 	}
 	defer res.Body.Close()
-
-	var feed jobicyRss
-	if err := xml.NewDecoder(res.Body).Decode(&feed); err != nil {
-		return nil, fmt.Errorf("erro ao decodificar XML do Jobicy: %w", err)
+	
+	var apiResponse jobicyAPIResponse
+	if err := json.NewDecoder(res.Body).Decode(&apiResponse); err != nil {
+		return nil, fmt.Errorf("erro ao decodificar JSON do Jobicy: %w", err)
 	}
 
 	var jobs []domain.Job
-	for _, item := range feed.Channel.Items {
+	for _, item := range apiResponse.Jobs {
 		jobs = append(jobs, domain.Job{
-			Title:           item.Title,
-			Link:            item.Link,
-			GUID:            item.GUID,
+			Title:           item.JobTitle,
+			Link:            item.URL,
+			GUID:            strconv.Itoa(item.ID),
 			SourceFeed:      "Jobicy",
-			Location:        item.Location,
-			FullDescription: item.FullContent,
+			Location:        item.JobGeo,
+			FullDescription: item.JobDescription,
+			
 		})
 	}
-
 	return jobs, nil
 }
 
