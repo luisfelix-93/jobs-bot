@@ -5,7 +5,9 @@ type Job struct {
 	Title        string
 	Link         string
 	GUID         string
-	Description string
+	SourceFeed   string
+	Location     string
+	FullDescription  string
 }
 type JobRepository interface {
 	FetchJobs() ([]Job, error)
