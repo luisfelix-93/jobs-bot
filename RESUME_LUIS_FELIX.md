@@ -31,24 +31,15 @@ Intermediate Software Engineer (Platform & SRE Focus)
 
 (April 2024 - Present)
 
--   Designed and automated end-to-end **CI/CD pipelines** using **Azure
-    > DevOps**, **GitLab CI**, and **ArgoCD**, achieving zero-downtime
-    > deployments and tripling release velocity.
+-   Designed and automated end-to-end **CI/CD pipelines** using **Azure DevOps**, **GitLab CI**, and **ArgoCD**, achieving zero-downtime deployments and tripling release velocity.
 
--   Managed and scaled microservices infrastructure on **Kubernetes
-    > (AKS) and Docker**, ensuring high availability and reliability for
-    > systems processing 10k+ daily requests.
+-   Managed and scaled microservices infrastructure on **Kubernetes (AKS) and Docker**, ensuring high availability and reliability for systems processing 10k+ daily requests.
 
--   Collaborated with backend teams to design, instrument, and optimise
-    > distributed **APIs** for performance and scalability.
+-   Collaborated with backend teams to design, instrument, and optimise distributed **APIs** for performance and scalability.
 
--   Built observability stacks using **Prometheus** and **Grafana**,
-    > defining **SLOs/SLIs** and maintaining 99.9% uptime across
-    > production workloads.
+-   Built observability stacks using **Prometheus** and **Grafana**, defining **SLOs/SLIs** and maintaining 99.9% uptime across production workloads.
 
--   Engineered asynchronous event-driven workflows with **RabbitMQ**,
-    > reducing background processing latency by 50% and improving fault
-    > tolerance
+-   Engineered asynchronous event-driven workflows with **RabbitMQ**, reducing background processing latency by 50% and improving fault tolerance
 
 Code7 (Florianópolis, Brazil - Remote)
 
@@ -56,24 +47,15 @@ Infrastructure Support Analyst
 
 (August 2021 - April 2024)
 
--   Enhanced system reliability and scalability for high-traffic
-    > platforms managing 5M+ monthly transactions on **Kubernetes** and
-    > **SQL Server**.
+-   Enhanced system reliability and scalability for high-traffic platforms managing 5M+ monthly transactions on **Kubernetes** and **SQL Server**.
 
--   Developed internal automation tools in **Bash**, **Go**, and
-    > **Python** to streamline diagnostics and accelerate incident
-    > resolution.
+-   Developed internal automation tools in **Bash**, **Go**, and **Python** to streamline diagnostics and accelerate incident resolution.
 
--   Acted as lead responder for production incidents, conducting **RCA
-    > (Root Cause Analysis)** and implementing long-term preventive
-    > measures.
+-   Acted as lead responder for production incidents, conducting **RCA (Root Cause Analysis)** and implementing long-term preventive measures.
 
--   Designed customer-centric reliability solutions that improved
-    > **SLA** compliance and **reduced ticket resolution time**.
+-   Designed customer-centric reliability solutions that improved **SLA** compliance and **reduced ticket resolution time**.
 
--   Provided **technical mentorship** to L1/L2 support teams, resulting
-    > in a measurable **decrease in backlog** and improved **incident
-    > management efficiency**.
+-   Provided **technical mentorship** to L1/L2 support teams, resulting in a measurable **decrease in backlog** and improved **incident management  efficiency**.
 
 Code7 (Florianópolis, Brazil - Remote)
 
@@ -102,21 +84,12 @@ Early Engineering Experience (Development & Automation)
 
 (November 2020 - March 2021)
 
--   Developed and maintained **custom internal tools** and plugins using
-    > C#/.NET to **automate complex engineering workflows**, replacing
-    > manual processes and saving significant engineering hours.
+-   Developed and maintained **custom internal tools** and plugins using C#/.NET to **automate complex engineering workflows**, 
+    replacing manual processes and saving significant engineering hours.
 
-```{=html}
-<!-- -->
-```
--   Managed workflows using **Trello/Jira**, ensuring on-time delivery
-    > and transparent progress tracking.
+-   Managed workflows using **Trello/Jira**, ensuring on-time delivery and transparent progress tracking.
 
-```{=html}
-<!-- -->
-```
--   **Developed** back-end features (**C#/.NET, Node.js**) and provided
-    > **technical support** for internal administrative tools.
+-   **Developed** back-end features (**C#/.NET, Node.js**) and provided**technical support** for internal administrative tools.
 
 A Solução Engenharia (Aracaju, Brazil, On Site)
 
@@ -124,32 +97,28 @@ A Solução Engenharia (Aracaju, Brazil, On Site)
 
 (April 2019 - October 2020)
 
--   Automated engineering tasks by programmatically manipulating AutoCAD
-    > drawings using **C#** and the **AutoCAD.NET API**.
+-   Automated engineering tasks by programmatically manipulating AutoCAD drawings using **C#** and the **AutoCAD.NET API**.
 
--   Developed plugins to extract metadata, insert and position geometric
-    > blocks, and integrate **AutoCAD** with external **.NET
-    > libraries.**
+-   Developed plugins to extract metadata, insert and position geometric blocks, and integrate **AutoCAD** with external **.NET libraries.**
 
--   Built reporting tools leveraging **MS Office** automation to enhance
-    > project tracking and data accuracy.**\
-    > **
+-   Built reporting tools leveraging **MS Office** automation to enhanceproject tracking and data accuracy
 
 ## Core SRE & Delivery Competencies
 
--   **Cloud, DevOps & Release:** Kubernetes, Docker, CI/CD, GitHub
-    > Actions, ArgoCD, Azure DevOps, Azure Cloud, AWS, Terraform (IaC).
+-   **Cloud, DevOps & Release:** 
+    - Kubernetes, Docker, CI/CD, GitHub Actions, ArgoCD, Azure DevOps, Azure Cloud, AWS, Terraform (IaC).
 
--   **Architecture & Systems:** Microservices Architecture, REST APIs,
-    > Asynchronous Messaging (RabbitMQ), Distributed Systems, TDD.
+-   **Architecture & Systems:** 
+    - Microservices Architecture, REST APIs
+    - Asynchronous Messaging (RabbitMQ), Distributed Systems, TDD.
 
--   **Development & Databases:** C#/.NET (8/6+), Python, Go, Node.js
-    > (TypeScript), Microsoft SQL Server, PostgreSQL, MongoDB.
+-   **Development & Databases:** 
+    - C#/.NET (8/6+), Python, Go, Node.js(TypeScript), Microsoft SQL Server, PostgreSQL, MongoDB.
 
--   **Observability & Collaboration:** Loki, Grafana, Prometheus,
-    > Performance Monitoring, Log
-    > Analysis, Alerting, SLOs/SLIs, Postman, Swagger, Git, Agile
-    > (Scrum/Kanban).
+-   **Observability & Collaboration:** 
+    - Loki, Grafana, Prometheus,
+    - Performance Monitoring, Log
+    - Analysis, Alerting, SLOs/SLIs, Postman, Swagger, Git, Agile(Scrum/Kanban).
 
 ## Education
 
