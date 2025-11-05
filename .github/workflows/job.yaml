@@ -41,4 +41,6 @@ jobs:
           POSITIVE_KEYWORDS: ${{ secrets.POSITIVE_KEYWORDS }}
           NEGATIVE_KEYWORDS: ${{ secrets.NEGATIVE_KEYWORDS }}
           JOB_LIMIT: ${{ secrets.JOB_LIMIT }}
-          RESUME_PATH: ${{secrets.RESUME_PATH}}
+          RESUME_FILE_PATH: ${{secrets.RESUME_PATH}}
+          JOBICY_RSS_URL: ${{secrets.JOBICY_RSS_URL}}
+          WWR_RSS_URL: ${{secrets.WWR_RSS_URL}}
