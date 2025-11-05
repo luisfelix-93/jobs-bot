@@ -1,6 +1,6 @@
 # Jobs Bot
 
-The Jobs Bot is a bot that searches for new job openings on LinkedIn, WeWorkRemotely, and Jobicy through an RSS feed, filters the jobs based on keywords, analyzes compatibility with your resume, and sends the best ones to a Trello board.
+The Jobs Bot is a bot that searches for new job openings on LinkedIn and WeWorkRemotely through an RSS feed, and on Jobicy through its JSON API. It then filters the jobs based on keywords, analyzes compatibility with your resume, and sends the best ones to a Trello board.
 
 ## Architecture
 
