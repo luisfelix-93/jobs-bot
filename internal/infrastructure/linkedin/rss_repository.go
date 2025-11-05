@@ -54,7 +54,9 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 			Title: item.Title,
 			Link:  item.Link,
 			GUID:  item.GUID,
-			Description: plainDescription,
+			SourceFeed: "LinkedIn",
+			Location: "",
+			FullDescription: plainDescription,
 		})
 	}
 

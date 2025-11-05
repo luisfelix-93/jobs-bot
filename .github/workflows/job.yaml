@@ -8,10 +8,10 @@ on:
 
   # 2. Agenda a execução automática
   schedule:
-    # Roda todo dia às 11:00 UTC.
-    # (Isso corresponde às 08:00 no fuso de Brasília, GMT-3)
+    # Roda todo dia às 03:00 UTC.
+    # (Isso corresponde às 00:00 no fuso de Brasília, GMT-3)
     # Formato: "minuto hora dia(mês) mês dia(semana)"
-    - cron: '0 11 * * *'
+    - cron: '0 3 * * *'
 
 jobs:
   run-job-bot:

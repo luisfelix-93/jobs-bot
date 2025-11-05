@@ -5,9 +5,11 @@ import (
 	"jobs-bot/internal/domain"
 	"net/http"
 	"net/url"
-	"strings"
+	"regexp"
 	"time"
 )
+
+var htmlTagRegex = regexp.MustCompile("<[^>]*>")
 
 type TrelloNotifier struct {
 	apiKey string
@@ -28,35 +30,37 @@ func NewTrelloNotifier(apiKey, token, listID string) *TrelloNotifier {
 func (t *TrelloNotifier) Notify(job domain.Job, analysis domain.ResumeAnalysis) error {
 	apiURL := "https://api.trello.com/1/cards"
 
-	// Crie uma descrição muito mais rica!
-	cardDesc := fmt.Sprintf(
-		"**Link da Vaga:**\n%s\n\n---\n\n**Compatibilidade: %.2f%%**\n\n**Palavras-Chave Encontradas:**\n`%s`\n\n**Palavras-Chave Faltando (Adicionar ao CV!):**\n`%s`",
-		job.Link,
-		analysis.MatchPercentage,
-		strings.Join(analysis.FoundKeywords, ", "),
-		strings.Join(analysis.MissingKeywords, ", "),
-	)
+	cardName := fmt.Sprintf("[%s] %s", job.SourceFeed, job.Title)
 
-	// Adicione a pontuação ao título do card
-	cardName := fmt.Sprintf("[%.f%%] %s", analysis.MatchPercentage, job.Title)
+	cleanDescription := htmlTagRegex.ReplaceAllString(job.FullDescription, "")
+
+	analysisDetails := fmt.Sprintf("%+v", analysis)
+
+	cardDesc := fmt.Sprintf(
+		"**ORIGEM:** %s\n\n**LINK DA VAGA:**\n%s\n\n---\n\n**ANÁLISE DO CURRÍCULO:**\n%s\n\n---\n\n**DESCRIÇÃO DA VAGA:**\n%s",
+		job.SourceFeed,
+		job.Link,
+		analysisDetails,  
+		cleanDescription,
+	)
+	
 
 	data := url.Values{}
 	data.Set("key", t.apiKey)
 	data.Set("token", t.token)
 	data.Set("idList", t.listID)
-	data.Set("name", cardName) // Título com a pontuação
-	data.Set("desc", cardDesc) // Descrição rica com a análise
+	data.Set("name", cardName)
+	data.Set("desc", cardDesc)
 
 	resp, err := t.client.PostForm(apiURL, data)
 	if err != nil {
-		return fmt.Errorf("erro ao enviar notificação para Trello: %w", err)
+		return fmt.Errorf("erro ao enviar request para o Trello: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("status não esperado ao enviar notificação para Trello: %s", resp.Status)
+		return fmt.Errorf("erro da API Trello, status: %s, body: %s", resp.Status, resp.Body)
 	}
 
-	fmt.Println("Notificação enviada com sucesso para Trello!")
 	return nil
 }
