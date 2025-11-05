@@ -27,32 +27,23 @@ func NewTrelloNotifier(apiKey, token, listID string) *TrelloNotifier {
 	}
 }
 
-// --- ATUALIZADO ---
-// A assinatura agora aceita o segundo argumento 'analysis'
-// para corresponder à sua interface domain.NotificationService
 func (t *TrelloNotifier) Notify(job domain.Job, analysis domain.ResumeAnalysis) error {
 	apiURL := "https://api.trello.com/1/cards"
 
-	// Título do Card (com origem)
 	cardName := fmt.Sprintf("[%s] %s", job.SourceFeed, job.Title)
 
-	// Limpa a descrição HTML
 	cleanDescription := htmlTagRegex.ReplaceAllString(job.FullDescription, "")
 
-	// Formata a análise (de forma genérica)
-	// Isso irá imprimir os nomes dos campos e seus valores.
-	// Ex: {Score:10 KeywordsFound:[Go, K8s]}
 	analysisDetails := fmt.Sprintf("%+v", analysis)
 
-	// Descrição do Card (com todos os novos dados)
 	cardDesc := fmt.Sprintf(
 		"**ORIGEM:** %s\n\n**LINK DA VAGA:**\n%s\n\n---\n\n**ANÁLISE DO CURRÍCULO:**\n%s\n\n---\n\n**DESCRIÇÃO DA VAGA:**\n%s",
 		job.SourceFeed,
 		job.Link,
-		analysisDetails,  // Adiciona a análise aqui
+		analysisDetails,  
 		cleanDescription,
 	)
-	// --- FIM DA ATUALIZAÇÃO ---
+	
 
 	data := url.Values{}
 	data.Set("key", t.apiKey)

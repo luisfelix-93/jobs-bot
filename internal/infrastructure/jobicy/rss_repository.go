@@ -12,8 +12,8 @@ type jobicyItem struct {
 	Title       string `xml:"title"`
 	Link        string `xml:"link"`
 	GUID        string `xml:"guid"`
-	Description string `xml:"description"` // Este é apenas um snippet, vamos ignorá-lo
-	FullContent string `xml:"encoded"`     // Tag <content:encoded>
+	Description string `xml:"description"`
+	FullContent string `xml:"encoded"`     
 	Location    string `xml:"location"`
 }
 

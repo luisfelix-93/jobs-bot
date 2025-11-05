@@ -13,9 +13,9 @@ type wwrItem struct {
 	Title       string `xml:"title"`
 	Link        string `xml:"link"`
 	GUID        string `xml:"guid"`
-	Description string `xml:"description"` // Contém o HTML da descrição [cite: 3, 15]
-	Region      string `xml:"region"`      // Ex: "Anywhere in the World", "California" [cite: 2, 13]
-	Country     string `xml:"country"`     // Ex: "🇺🇸 United States of America" [cite: 2]
+	Description string `xml:"description"` 
+	Region      string `xml:"region"`      
+	Country     string `xml:"country"`     
 }
 
 type wwrRss struct {
@@ -44,17 +44,17 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 		return nil, fmt.Errorf("erro ao criar request para WWR: %w", err)
 	}
 
-	// 3. DEFINIMOS O USER-AGENT PARA SIMULAR UM NAVEGADOR
+	
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.0.0 Safari/537.36")
 
-	// 4. EXECUTAMOS A REQUISIÇÃO COM NOSSO CLIENT (que tem o timeout)
+	
 	resp, err := r.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("erro ao buscar feed WWR: %w", err)
 	}
 	defer resp.Body.Close()
 
-	// 5. O RESTO DA FUNÇÃO (PARSE DO XML) CONTINUA EXATAMENTE IGUAL
+	
 	var feed wwrRss
 	if err := xml.NewDecoder(resp.Body).Decode(&feed); err != nil {
 		return nil, fmt.Errorf("erro ao decodificar XML do WWR: %w", err)
