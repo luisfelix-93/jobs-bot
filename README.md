@@ -1,60 +1,98 @@
-# Jobs Bot
+# Jobs Bot v2 🤖
 
-The Jobs Bot is a bot that searches for new job openings on LinkedIn and WeWorkRemotely through an RSS feed, and on Jobicy through its JSON API. It then filters the jobs based on keywords, analyzes compatibility with your resume, and sends the best ones to a Trello board.
+Personal Job Search Assistant driven by Multi-Profile Configuration, AI Analysis, and Smart Deduplication.
 
-## Architecture
+## Features
 
-The project is divided into three main layers:
-
-- **`cmd`**: The application's entry layer, where initialization and dependency injection are done.
-- **`internal`**: The main application layer, divided into:
-    - **`application`**: The service layer, which orchestrates the business logic.
-    - **`domain`**: The domain layer, which contains the entities and the main business logic.
-    - **`infrastructure`**: The infrastructure layer, which contains the implementations of repositories and external services.
-- **`config`**: The configuration layer, which loads the application's settings from environment variables.
-
-## Resume Analysis
-
-One of the main features of the bot is the ability to analyze a job description and compare it with the content of a resume file in `.txt` format. The bot calculates a compatibility percentage based on keywords and reports which ones were found and which are missing.
-
-The analysis result is added to the Trello card, making it easier to decide whether to apply for the job or not. The card title will contain the job source and the job title, and the description will have the analysis details.
+- **Multi-Profile Support**: Configure multiple search profiles (e.g., "SRE", "Backend .NET") via `profiles.yaml`.
+- **Intelligent Deduplication**: Uses MongoDB Atlas to track processed jobs and prevent duplicates (90-day retention).
+- **AI Analysis (DeepSeek)**: Analyzes job descriptions against your resume, providing:
+  - Match Score (0-100)
+  - Strengths & Gaps interpretation
+  - Recommendation (Apply/Review/Skip)
+  - *Fallback to Keyword Matching if AI is unavailable.*
+- **Daily Email Summary**: Sends a consolidated HTML email with stats and top recommendations for all profiles.
+- **Trello Integration**: Creates rich cards with AI summaries and tags.
+- **Multiple Sources**:
+  - JSearch (RapidAPI)
+  - Findwork.dev
+  - Jobicy
+  - WeWorkRemotely
+  - LinkedIn (RSS)
 
 ## Configuration
 
-The bot is configured through environment variables, which can be defined in an `.env` file in the project's root.
+### 1. Environment Variables (`.env`)
 
-| Variable | Description |
-| --- | --- |
-| `LINKEDIN_RSS_URL` | The URL of the LinkedIn RSS feed with the job search filters. |
-| `WEWORKREMOTELY_RSS_URL` | The URL of the WeWorkRemotely RSS feed with the job search filters. |
-| `JOBICY_RSS_URL` | The URL of the Jobicy RSS feed with the job search filters. |
-| `TRELLO_API_KEY` | The Trello API key. |
-| `TRELLO_API_TOKEN` | The Trello API token. |
-| `TRELLO_LIST_ID` | The ID of the Trello list where the job cards will be created. |
-| `POSITIVE_KEYWORDS` | A comma-separated list of keywords to filter the jobs. |
-| `NEGATIVE_KEYWORDS` | A comma-separated list of keywords to exclude the jobs. |
-| `JOB_LIMIT` | The maximum number of jobs to be sent to Trello. |
-| `RESUME_FILE_PATH` | The path to the resume file in `.txt` format. |
+```ini
+# Trello
+TRELLO_API_KEY="your_key"
+TRELLO_API_TOKEN="your_token"
 
-## Keywords
+# MongoDB (Atlas or Local)
+MONGO_URI="mongodb+srv://user:pass@cluster.mongodb.net/?retryWrites=true&w=majority"
 
-The `POSITIVE_KEYWORDS` are used for both the initial job filtering and the resume compatibility analysis. The bot checks which of these keywords are present in the job description and in your resume to calculate the score.
+# AI & APIs (Optional but recommended)
+DEEPSEEK_API_KEY="sk-..."
+JSEARCH_API_KEY="rapidapi_key"
+FINDWORK_API_KEY="findwork_token"
 
-## How to run
+# Email (SMTP)
+SMTP_HOST="smtp.gmail.com"
+SMTP_PORT=587
+SMTP_USER="your_email@gmail.com"
+SMTP_PASSWORD="app_password"
+EMAIL_TO="recipient@email.com"
 
-1. Clone the repository:
-```bash
-git clone https://github.com/luisfelix-93/jobs-bot.git
+# Global Settings
+JOB_LIMIT=50
 ```
-2. Create a resume file in `.txt` format in the project's root (or in another location) and add your resume's content to it.
 
-3. Create an `.env` file in the project's root and add the environment variables, as per the [Configuration](#configuration) section. Make sure that `RESUME_FILE_PATH` points to your resume file.
+### 2. Profiles (`profiles.yaml`)
 
-4. Install the dependencies:
-```bash
-go mod tidy
+Define your search profiles in the root directory:
+
+```yaml
+profiles:
+  - name: "SRE-Platform"
+    resume_path: "curriculos/RESUME_SRE.md"
+    positive_keywords: ["Kubernetes", "Go", "AWS"]
+    negative_keywords: ["Java", "Junior"]
+    trello_list_id: "list_id_for_sre"
+    sources:
+      jsearch_query: "SRE Remote"
+      findwork_search: "devops"
+
+  - name: "DotNet-Backend"
+    resume_path: "curriculos/RESUME_DOTNET.md"
+    # ...
 ```
-5. Run the bot:
-```bash
-go run cmd/bot/main.go
-```
+
+## How to Run
+
+### Local Development
+
+1. Start local MongoDB (optional, if not using Atlas):
+   ```powershell
+   docker compose up -d
+   ```
+2. Run the bot:
+   ```powershell
+   go run cmd/bot/main.go
+   ```
+
+### GitHub Actions
+
+The workflow `.github/workflows/schedule.yml` runs automatically Mon-Fri at 09:00 UTC.
+Ensure you add the following **Secrets** in your GitHub Repository settings:
+- `MONGO_URI`
+- `TRELLO_API_KEY`, `TRELLO_API_TOKEN`
+- `DEEPSEEK_API_KEY`, `JSEARCH_API_KEY`, `FINDWORK_API_KEY`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
+
+## Architecture
+
+- **Domain**: Core logic (`Job`, `ProfileStats`, `AIAnalysis`).
+- **Application**: `JobService` orchestrates fetching -> filtering -> analyzing -> notifying.
+- **Infrastructure**: Implementations for MongoDB, Trello, Email, DeepSeek, and Job APIs.
+- **Config**: Loads `profiles.yaml` and environment variables.

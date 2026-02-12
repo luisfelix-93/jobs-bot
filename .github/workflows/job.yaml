@@ -44,3 +44,7 @@ jobs:
           RESUME_FILE_PATH: ${{secrets.RESUME_FILE_PATH}}
           JOBICY_RSS_URL: ${{secrets.JOBICY_RSS_URL}}
           WWR_RSS_URL: ${{secrets.WWR_RSS_URL}}
+          JSEARCH_API_KEY: ${{secrets.JSEARCH_API_KEY}}
+          FINDWORK_API_KEY: ${{secrets.FINDWORK_API_KEY}}
+          MONGODB_URI: ${{secrets.MONGODB_URI}}
+          DEEPSEEK_API_KEY: ${{secrets.DEEPSEEK_API_KEY}} 

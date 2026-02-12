@@ -1,45 +1,58 @@
-// Arquivo: internal/application/job_service.go
 package application
 
 import (
+	"fmt"
 	"jobs-bot/internal/domain"
 	"log"
+	"sort"
 	"sync"
+	"time"
 )
+
+const aiScoreThreshold = 50
 
 type JobService struct {
 	repos          []domain.JobRepository
 	notifier       domain.NotificationService
 	filter         *domain.JobFilter
-	analyzer       *domain.ResumeAnalyzer 
-	resumeContent  string                 
-	filterKeywords []string             
+	analyzer       *domain.ResumeAnalyzer
+	aiAnalyzer     domain.AIAnalyzer
+	store          domain.JobStore
+	resumeContent  string
+	filterKeywords []string
+	profileName    string
 	limit          int
 }
-
 
 func NewJobService(
 	repos []domain.JobRepository,
 	notifier domain.NotificationService,
 	filter *domain.JobFilter,
-	analyzer *domain.ResumeAnalyzer, 
-	resumeContent string,            
-	filterKeywords []string,          
+	analyzer *domain.ResumeAnalyzer,
+	aiAnalyzer domain.AIAnalyzer,
+	store domain.JobStore,
+	resumeContent string,
+	filterKeywords []string,
+	profileName string,
 	limit int,
 ) *JobService {
 	return &JobService{
 		repos:          repos,
 		notifier:       notifier,
 		filter:         filter,
-		analyzer:       analyzer,       
+		analyzer:       analyzer,
+		aiAnalyzer:     aiAnalyzer,
+		store:          store,
 		resumeContent:  resumeContent,
 		filterKeywords: filterKeywords,
+		profileName:    profileName,
 		limit:          limit,
 	}
 }
 
-func (s *JobService) ProcessNewJobs() error {
-	log.Println("Iniciando busca em todas as fontes...")
+func (s *JobService) ProcessNewJobs() (domain.ProfileStats, error) {
+	stats := domain.ProfileStats{ProfileName: s.profileName}
+	log.Printf("[%s] Iniciando busca em todas as fontes...", s.profileName)
 
 	var allJobs []domain.Job
 	var wg sync.WaitGroup
@@ -51,7 +64,7 @@ func (s *JobService) ProcessNewJobs() error {
 			defer wg.Done()
 			jobs, err := r.FetchJobs()
 			if err != nil {
-				log.Printf("ERRO ao buscar em um repositório: %v", err)
+				log.Printf("[%s] ERRO ao buscar em um repositório: %v", s.profileName, err)
 				return
 			}
 			mu.Lock()
@@ -61,28 +74,140 @@ func (s *JobService) ProcessNewJobs() error {
 	}
 	wg.Wait()
 
-	log.Printf("Encontradas %d vagas no total. Filtrando...", len(allJobs))
+	stats.TotalFound = len(allJobs)
+	log.Printf("[%s] Encontradas %d vagas no total. Filtrando...", s.profileName, len(allJobs))
 
 	bestJobs := s.filter.FilterAndRankJobs(allJobs, s.limit)
-	log.Printf("Após filtragem, %d vagas foram selecionadas para notificação.", len(bestJobs))
+	stats.TotalFiltered = len(bestJobs)
+	log.Printf("[%s] Após filtragem, %d vagas selecionadas.", s.profileName, len(bestJobs))
 
 	if len(bestJobs) == 0 {
-		log.Println("Nenhuma vaga nova corresponde aos critérios. Encerrando.")
-		return nil
+		log.Printf("[%s] Nenhuma vaga nova corresponde aos critérios.", s.profileName)
+		return stats, nil
 	}
 
+	var notifiedJobs []domain.ProcessedJob
+
 	for _, job := range bestJobs {
-		log.Printf("Analisando vaga: %s", job.Title)
+		guid := fmt.Sprintf("%s-%s", job.SourceFeed, job.GUID)
 
-		analysis := s.analyzer.Analyze(s.resumeContent, job.FullDescription, s.filterKeywords)
+		exists, err := s.store.Exists(guid, s.profileName)
+		if err != nil {
+			log.Printf("[%s] ERRO ao verificar dedup para '%s': %v", s.profileName, job.Title, err)
+			continue
+		}
+		if exists {
+			stats.TotalSkipped++
+			continue
+		}
 
-		log.Printf("Enviando vaga para o Trello: %s (Match: %.2f%%)", job.Title, analysis.MatchPercentage)
+		keywordAnalysis := s.analyzer.Analyze(s.resumeContent, job.FullDescription, s.filterKeywords)
 
-		if err := s.notifier.Notify(job, analysis); err != nil {
-			log.Printf("ERRO ao notificar sobre a vaga '%s': %v", job.Title, err)
+		aiAnalysis := s.analyzeWithAI(job)
+
+		shouldNotify := true
+		if aiAnalysis != nil && aiAnalysis.Score < aiScoreThreshold {
+			shouldNotify = false
+			stats.BelowThreshold++
+			log.Printf("[%s] Vaga '%s' abaixo do threshold (score: %d). Salvando sem notificar.", s.profileName, job.Title, aiAnalysis.Score)
+		}
+
+		if shouldNotify {
+			log.Printf("[%s] Enviando vaga: %s (AI Score: %s, Keyword Match: %.2f%%)",
+				s.profileName, job.Title, formatAIScore(aiAnalysis), keywordAnalysis.MatchPercentage)
+
+			if err := s.notifier.Notify(job, keywordAnalysis, aiAnalysis); err != nil {
+				log.Printf("[%s] ERRO ao notificar '%s': %v", s.profileName, job.Title, err)
+			}
+			stats.TotalNotified++
+		}
+
+		processedJob := domain.ProcessedJob{
+			GUID:            guid,
+			Source:          job.SourceFeed,
+			Profile:         s.profileName,
+			Title:           job.Title,
+			Link:            job.Link,
+			Location:        job.Location,
+			Description:     job.FullDescription,
+			KeywordAnalysis: keywordAnalysis,
+			AIAnalysis:      aiAnalysis,
+			Notified:        shouldNotify,
+			NotifiedAt:      time.Now(),
+			CreatedAt:       time.Now(),
+			TTLExpireAt:     time.Now().Add(90 * 24 * time.Hour),
+		}
+
+		if err := s.store.Save(processedJob); err != nil {
+			log.Printf("[%s] ERRO ao salvar job '%s' no MongoDB: %v", s.profileName, job.Title, err)
+		}
+
+		if shouldNotify {
+			notifiedJobs = append(notifiedJobs, processedJob)
 		}
 	}
 
-	log.Println("Processo concluído com sucesso.")
-	return nil
+	// Sort notified jobs by score (AI or MatchPercentage) to pick top ones
+	sort.Slice(notifiedJobs, func(i, j int) bool {
+		scoreI := getScore(notifiedJobs[i])
+		scoreJ := getScore(notifiedJobs[j])
+		return scoreI > scoreJ
+	})
+
+	if len(notifiedJobs) > 5 {
+		stats.TopJobs = notifiedJobs[:5]
+	} else {
+		stats.TopJobs = notifiedJobs
+	}
+
+	log.Printf("[%s] Concluído: %d notificadas, %d duplicadas, %d abaixo do threshold.",
+		s.profileName, stats.TotalNotified, stats.TotalSkipped, stats.BelowThreshold)
+	return stats, nil
+}
+
+func getScore(job domain.ProcessedJob) float64 {
+	if job.AIAnalysis != nil {
+		return float64(job.AIAnalysis.Score)
+	}
+	return job.KeywordAnalysis.MatchPercentage
+}
+
+func (s *JobService) analyzeWithAI(job domain.Job) *domain.AIAnalysis {
+	if s.aiAnalyzer == nil {
+		return nil
+	}
+
+	analysis, err := s.aiAnalyzer.Analyze(s.resumeContent, job.FullDescription)
+	if err != nil {
+		log.Printf("[%s] DeepSeek falhou para '%s': %v. Usando fallback keyword.", s.profileName, job.Title, err)
+
+		keywordResult := s.analyzer.Analyze(s.resumeContent, job.FullDescription, s.filterKeywords)
+		return &domain.AIAnalysis{
+			Score:          int(keywordResult.MatchPercentage),
+			Strengths:      keywordResult.FoundKeywords,
+			Gaps:           keywordResult.MissingKeywords,
+			Recommendation: classifyByScore(int(keywordResult.MatchPercentage)),
+			Summary:        "Análise por keyword matching (fallback - DeepSeek indisponível).",
+			Source:         "keyword_fallback",
+		}
+	}
+
+	return analysis
+}
+
+func classifyByScore(score int) string {
+	if score >= 70 {
+		return "apply"
+	}
+	if score >= 50 {
+		return "review"
+	}
+	return "skip"
+}
+
+func formatAIScore(ai *domain.AIAnalysis) string {
+	if ai == nil {
+		return "N/A"
+	}
+	return fmt.Sprintf("%d (%s)", ai.Score, ai.Source)
 }
