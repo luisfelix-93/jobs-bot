@@ -14,5 +14,5 @@
 # Environment file
 .env
 
-PR_SUMMARY.md
-release_notes.md
+.agent/
+TODO.md

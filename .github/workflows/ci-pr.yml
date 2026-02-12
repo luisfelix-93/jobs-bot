@@ -1,0 +1,48 @@
+name: CI - Pull Request
+
+on:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  pr-flow:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Calculate Version
+        id: version
+        run: echo "TAG=v0.0.${{ github.run_number }}-rc" >> $GITHUB_ENV
+
+      - name: Create and Push Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag ${{ env.TAG }}
+          git push origin ${{ env.TAG }}
+
+      - name: Create or Update Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if PR exists
+          PR_EXISTS=$(gh pr list --head ${{ github.ref_name }} --base main --json number --jq '.[0].number')
+          
+          if [ -z "$PR_EXISTS" ]; then
+            echo "Creating PR..."
+            gh pr create \
+              --base main \
+              --head ${{ github.ref_name }} \
+              --title "Release Candidate: ${{ github.ref_name }}" \
+              --body-file docs/PR_SUMMARY.md
+          else
+            echo "Updating PR #$PR_EXISTS..."
+            gh pr edit $PR_EXISTS \
+              --body-file docs/PR_SUMMARY.md
+          fi
