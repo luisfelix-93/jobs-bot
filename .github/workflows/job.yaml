@@ -7,11 +7,11 @@ on:
   workflow_dispatch:
 
   # 2. Agenda a execução automática
-  schedule:
+  # schedule:
     # Roda todo dia às 03:00 UTC.
     # (Isso corresponde às 00:00 no fuso de Brasília, GMT-3)
     # Formato: "minuto hora dia(mês) mês dia(semana)"
-    - cron: '0 3 * * *'
+    # - cron: '0 3 * * *'
 
 jobs:
   run-job-bot:
@@ -47,4 +47,5 @@ jobs:
           JSEARCH_API_KEY: ${{secrets.JSEARCH_API_KEY}}
           FINDWORK_API_KEY: ${{secrets.FINDWORK_API_KEY}}
           MONGODB_URI: ${{secrets.MONGODB_URI}}
+
           DEEPSEEK_API_KEY: ${{secrets.DEEPSEEK_API_KEY}} 
