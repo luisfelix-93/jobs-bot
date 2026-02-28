@@ -53,7 +53,7 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("API WWR retornou status inválido: %d", resp.StatusCode)
+		return nil, fmt.Errorf("API WWR retornou status inválido: %s (código %d) para URL %s", resp.Status, resp.StatusCode, r.rssURL)
 	}
 
 	var feed wwrRss
