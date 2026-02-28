@@ -96,3 +96,23 @@ Ensure you add the following **Secrets** in your GitHub Repository settings:
 - **Application**: `JobService` orchestrates fetching -> filtering -> analyzing -> notifying.
 - **Infrastructure**: Implementations for MongoDB, Trello, Email, DeepSeek, and Job APIs.
 - **Config**: Loads `profiles.yaml` and environment variables.
+
+### Workflow
+
+```mermaid
+graph TD
+    Start([Cron / Manual Start]) --> Config[Load Config & profiles.yaml]
+    Config --> ProfileLoop{For each Profile}
+    
+    ProfileLoop -->|Processing Profile| Fetch[Fetch Jobs from Sources<br/>JSearch, Findwork, LinkedIn, etc.]
+    Fetch --> Dedup[Deduplication<br/>Check MongoDB]
+    
+    Dedup --> AILoop{For each new Job}
+    AILoop -->|Score Job| AI[AI Analysis via DeepSeek<br/>Compare Job vs Resume]
+    AI --> Trello[Create Trello Card<br/>Add Labels & Summary]
+    Trello --> AILoop
+    
+    AILoop -->|Jobs Processed| ProfileLoop
+    ProfileLoop -->|All Profiles Done| Email[Send Consolidated<br/>HTML Email Summary]
+    Email --> Finish([End])
+```

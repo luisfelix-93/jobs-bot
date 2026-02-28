@@ -19,7 +19,7 @@ profiles:
       - "Júnior"
     trello_list_id: "698daef21893d14923a0c738"
     sources:
-      jobicy_url: "https://jobicy.com/api/v2/remote-jobs?count=20&geo=europe&industry=admin"
+      jobicy_url: "https://jobicy.com/api/v2/remote-jobs?count=20&industry=admin"
       wwr_url: "https://remotive.com/remote-jobs/feed/devops"
       linkedin_url: ""
       jsearch_query: "SRE remote Europe"
@@ -45,9 +45,9 @@ profiles:
       - "Júnior"
     trello_list_id: "698daf132538fbe154aab112"
     sources:
-      jobicy_url: "https://jobicy.com/api/v2/remote-jobs?count=20&geo=europe&industry=dev"
+      jobicy_url: "https://jobicy.com/api/v2/remote-jobs?count=20&industry=dev"
       wwr_url: ""
       linkedin_url: ""
-      jsearch_query: ".NET developer remote Europe"
+      jsearch_query: ".NET developer remote"
       findwork_search: "dotnet backend"
       findwork_location: "remote"
