@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"jobs-bot/internal/domain"
@@ -69,6 +70,11 @@ Retorne APENAS um JSON válido com:
 	}
 
 	content := resp.Choices[0].Message.Content
+
+	content = strings.TrimPrefix(content, "```json\n")
+	content = strings.TrimPrefix(content, "```\n")
+	content = strings.TrimSuffix(content, "\n```")
+	content = strings.TrimSpace(content)
 
 	var analysis domain.AIAnalysis
 	if err := json.Unmarshal([]byte(content), &analysis); err != nil {
