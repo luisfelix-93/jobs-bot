@@ -45,7 +45,11 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 		return nil, fmt.Errorf("erro ao buscar dados da Jobicy API: %w", err)
 	}
 	defer res.Body.Close()
-	
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("API Jobicy retornou status inválido: %d", res.StatusCode)
+	}
+
 	var apiResponse jobicyAPIResponse
 	if err := json.NewDecoder(res.Body).Decode(&apiResponse); err != nil {
 		return nil, fmt.Errorf("erro ao decodificar JSON do Jobicy: %w", err)
@@ -60,9 +64,7 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 			SourceFeed:      "Jobicy",
 			Location:        item.JobGeo,
 			FullDescription: item.JobDescription,
-			
 		})
 	}
 	return jobs, nil
 }
-
