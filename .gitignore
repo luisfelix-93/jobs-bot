@@ -16,3 +16,8 @@
 
 .agent/
 TODO.md
+
+
+*.specs.md
+issues/*.md
+PLAN-*.md
