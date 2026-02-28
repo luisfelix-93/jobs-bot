@@ -71,7 +71,7 @@ func LoadConfig() (*Config, error) {
 	cfg := &Config{
 		TrelloAPIKey:   getEnv("TRELLO_API_KEY", ""),
 		TrelloAPIToken: getEnv("TRELLO_API_TOKEN", ""),
-		MongoURI:       getEnv("MONGO_URI", "mongodb://localhost:27017"),
+		MongoURI:       getEnv("MONGO_URI", ""),
 		JobLimit:       jobLimit,
 		DeepSeekAPIKey: os.Getenv("DEEPSEEK_API_KEY"),
 		JSearchAPIKey:  os.Getenv("JSEARCH_API_KEY"),
