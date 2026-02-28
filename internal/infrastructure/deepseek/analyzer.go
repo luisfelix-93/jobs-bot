@@ -71,11 +71,32 @@ Retorne APENAS um JSON válido com:
 
 	content := resp.Choices[0].Message.Content
 
-	content = strings.TrimPrefix(content, "```json\n")
-	content = strings.TrimPrefix(content, "```\n")
-	content = strings.TrimSuffix(content, "\n```")
+	// Sanitize possible Markdown code fences in a tolerant way
+	// 1. Trim surrounding whitespace (including CRLF/space variations).
 	content = strings.TrimSpace(content)
 
+	// 2. Remove leading ``` fence, with or without language tag, and with any newline style.
+	if strings.HasPrefix(content, "```") {
+		if idx := strings.Index(content, "\n"); idx != -1 {
+			// Drop the first line (the fence), keep the rest.
+			content = content[idx+1:]
+		} else {
+			// No newline found; just strip the fence markers and any language tag.
+			content = strings.TrimPrefix(content, "```json")
+			content = strings.TrimPrefix(content, "```")
+		}
+	}
+
+	// 3. Trim again to normalize after removing the leading fence.
+	content = strings.TrimSpace(content)
+
+	// 4. Remove trailing ``` fence, regardless of preceding newline style.
+	if strings.HasSuffix(content, "```") {
+		content = content[:len(content)-3]
+	}
+
+	// 5. Final trim before JSON parsing.
+	content = strings.TrimSpace(content)
 	var analysis domain.AIAnalysis
 	if err := json.Unmarshal([]byte(content), &analysis); err != nil {
 		contentPreview := content
