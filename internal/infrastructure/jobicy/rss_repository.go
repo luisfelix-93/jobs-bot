@@ -47,7 +47,7 @@ func (r *RssRepository) FetchJobs() ([]domain.Job, error) {
 	defer res.Body.Close()
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("API Jobicy retornou status inválido: %d", res.StatusCode)
+		return nil, fmt.Errorf("API Jobicy retornou status inválido: %s (code=%d) para URL %s", res.Status, res.StatusCode, req.URL.String())
 	}
 
 	var apiResponse jobicyAPIResponse
