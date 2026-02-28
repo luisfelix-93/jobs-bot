@@ -78,7 +78,12 @@ Retorne APENAS um JSON válido com:
 
 	var analysis domain.AIAnalysis
 	if err := json.Unmarshal([]byte(content), &analysis); err != nil {
-		return nil, fmt.Errorf("erro ao parsear JSON do DeepSeek: %w (conteúdo: %s)", err, content)
+		contentPreview := content
+		const maxPreviewLen = 200
+		if len(contentPreview) > maxPreviewLen {
+			contentPreview = contentPreview[:maxPreviewLen]
+		}
+		return nil, fmt.Errorf("erro ao parsear JSON do DeepSeek: %w (conteúdo truncado, %d bytes, primeiros %d bytes: %s)", err, len(content), len(contentPreview), contentPreview)
 	}
 
 	analysis.Source = "deepseek"
