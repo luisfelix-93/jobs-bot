@@ -11,13 +11,14 @@ import (
 )
 
 type Config struct {
-	TrelloAPIKey   string
-	TrelloAPIToken string
-	MongoURI       string
-	JobLimit       int
-	DeepSeekAPIKey string
-	JSearchAPIKey  string
-	FindworkAPIKey string
+	TrelloAPIKey     string
+	TrelloAPIToken   string
+	MongoURI         string
+	JobLimit         int
+	DeepSeekAPIKey   string
+	JSearchAPIKey    string
+	FindworkAPIKey   string
+	TheirStackAPIKey string
 	// Email Config
 	SMTPHost     string
 	SMTPPort     int
@@ -42,6 +43,7 @@ type Sources struct {
 	JSearchQuery     string `yaml:"jsearch_query"`
 	FindworkSearch   string `yaml:"findwork_search"`
 	FindworkLocation string `yaml:"findwork_location"`
+	TheirStackURL    string `yaml:"theirstack_url"`
 }
 
 type profilesFile struct {
@@ -69,13 +71,14 @@ func LoadConfig() (*Config, error) {
 	}
 
 	cfg := &Config{
-		TrelloAPIKey:   getEnv("TRELLO_API_KEY", ""),
-		TrelloAPIToken: getEnv("TRELLO_API_TOKEN", ""),
-		MongoURI:       getEnv("MONGO_URI", "mongodb://localhost:27017"),
-		JobLimit:       jobLimit,
-		DeepSeekAPIKey: os.Getenv("DEEPSEEK_API_KEY"),
-		JSearchAPIKey:  os.Getenv("JSEARCH_API_KEY"),
-		FindworkAPIKey: os.Getenv("FINDWORK_API_KEY"),
+		TrelloAPIKey:     getEnv("TRELLO_API_KEY", ""),
+		TrelloAPIToken:   getEnv("TRELLO_API_TOKEN", ""),
+		MongoURI:         getEnv("MONGO_URI", "mongodb://localhost:27017"),
+		JobLimit:         jobLimit,
+		DeepSeekAPIKey:   os.Getenv("DEEPSEEK_API_KEY"),
+		JSearchAPIKey:    os.Getenv("JSEARCH_API_KEY"),
+		FindworkAPIKey:   os.Getenv("FINDWORK_API_KEY"),
+		TheirStackAPIKey: os.Getenv("THEIRSTACK_API_KEY"),
 
 		SMTPHost:     os.Getenv("SMTP_HOST"),
 		SMTPPort:     smtpPort,

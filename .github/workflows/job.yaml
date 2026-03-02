@@ -47,5 +47,5 @@ jobs:
           JSEARCH_API_KEY: ${{secrets.JSEARCH_API_KEY}}
           FINDWORK_API_KEY: ${{secrets.FINDWORK_API_KEY}}
           MONGO_URI: ${{secrets.MONGODB_URI}}
-
           DEEPSEEK_API_KEY: ${{secrets.DEEPSEEK_API_KEY}} 
+          THEIRSTACK_API_KEY: ${{secrets.THEIRSTACK_API_KEY}}

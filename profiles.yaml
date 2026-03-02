@@ -25,6 +25,7 @@ profiles:
       jsearch_query: "SRE remote Europe"
       findwork_search: "golang devops"
       findwork_location: "remote"
+      theirstack_url: "https://api.theirstack.com/v1/jobs/search"
 
   - name: "DotNet-Backend"
     resume_path: "curriculos/Luis_Felipe_Felix_Filho_Resume.md"
@@ -46,8 +47,9 @@ profiles:
     trello_list_id: "698daf132538fbe154aab112"
     sources:
       jobicy_url: "https://jobicy.com/api/v2/remote-jobs?count=20&industry=dev"
-      wwr_url: ""
+      wwr_url: "https://remotive.com/remote-jobs/feed/software-development"
       linkedin_url: ""
       jsearch_query: ".NET developer remote"
       findwork_search: "dotnet backend"
       findwork_location: "remote"
+      theirstack_url: "https://api.theirstack.com/v1/jobs/search"
