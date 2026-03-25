@@ -14,6 +14,7 @@ import (
 	"jobs-bot/internal/infrastructure/jsearch"
 	"jobs-bot/internal/infrastructure/linkedin"
 	"jobs-bot/internal/infrastructure/mongodb"
+	"jobs-bot/internal/infrastructure/theirstack"
 	"jobs-bot/internal/infrastructure/trello"
 	"jobs-bot/internal/infrastructure/weworkremotely"
 )
@@ -59,7 +60,7 @@ func main() {
 		}
 		resumeContent := string(resumeBytes)
 
-		repos := buildRepos(profile.Sources, cfg)
+		repos := buildRepos(profile.Sources, cfg, profile)
 		if len(repos) == 0 {
 			log.Printf("[%s] Nenhuma fonte de vagas configurada. Pulando.", profile.Name)
 			continue
@@ -100,8 +101,8 @@ func main() {
 	}
 }
 
-func buildRepos(sources config.Sources, cfg *config.Config) []domain.JobRepository {
-	repos := make([]domain.JobRepository, 0, 5)
+func buildRepos(sources config.Sources, cfg *config.Config, profile config.ProfileConfig) []domain.JobRepository {
+	repos := make([]domain.JobRepository, 0, 6)
 
 	if sources.JobicyURL != "" {
 		log.Println("  + Fonte: Jobicy")
@@ -127,6 +128,13 @@ func buildRepos(sources config.Sources, cfg *config.Config) []domain.JobReposito
 		repos = append(repos, findwork.NewRepository(cfg.FindworkAPIKey, sources.FindworkSearch, sources.FindworkLocation))
 	} else if sources.FindworkSearch != "" || sources.FindworkLocation != "" {
 		log.Println("  - Fonte: Findwork IGNORADA (API Key não configurada)")
+	}
+
+	if sources.TheirStackURL != "" && cfg.TheirStackAPIKey != "" {
+		log.Println("  + Fonte: TheirStack")
+		repos = append(repos, theirstack.NewJobRepository(cfg.TheirStackAPIKey, profile))
+	} else if sources.TheirStackURL != "" {
+		log.Println("  - Fonte: TheirStack IGNORADA (API Key não configurada)")
 	}
 
 	return repos

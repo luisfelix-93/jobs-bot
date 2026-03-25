@@ -1,15 +1,11 @@
 ## Resumo do Pull Request
 
-Este Pull Request engloba as correções descritas no `bug-fixing.specs.md` abordando as Issues 01 e 03. Estes commits restauraram a estabilidade do fluxo de captação RSS e a higienização de carga proveniente da Inteligência Artificial.
+Este Pull Request resolve um problema de tipagem com o campo de identificação das vagas retornadas pela API do Findwork. A estrutura de dados interna e o processo de parse foram ajustados para acomodar o formato correto do respectivo ID.
 
 ### Principais Alterações:
 
-#### 1. Validação de HTTP StatusCode (Issue #01)
+#### 1. Correção da tipagem do ID do Findwork
 
-- **Correção da ingestão de RSS:** Os arquivos `internal/infrastructure/jobicy/rss_repository.go` e `internal/infrastructure/weworkremotely/rss_repository.go` agora avaliam a viabilidade da resposta HTTP `(resp.StatusCode)` antes de efetuar o body parsing JSON/XML.
-- **Prevenção de Crashes:** Evitamos falhas e pânicos da aplicação causados pelo parsing de documentos inválidos que mascaram erros crônicos de rede ou negações de serviço (como do Cloudflare) nas APIs parceiras.
-
-#### 2. Extração segura da resposta LLM DeepSeek (Issue #03)
-
-- **Sanitização de String:** Respostas da API DeepSeek agora passam por uma rotina de deleção de blocos formados como "markdown code chunks" via `strings.TrimPrefix` e `strings.TrimSuffix` no repositório `internal/infrastructure/deepseek/analyzer.go`.
-- **Prevenção de Fallbacks falsos:** A correção garante que o Unmarshal nativo capture dados puramente JSON sem quebrar a deserialização da estrutura final por falhas de formatação não computacionais vindas da IA.
+- O tipo do campo `ID` na estrutura `findworkJob` foi alterado de `int` para `string` (`internal/infrastructure/findwork/repository.go`).
+- A atribuição ao campo `GUID` no mapeamento de resposta modelo de domínio agora utiliza o valor da string de forma direta (`item.ID`), substituindo a antiga conversão `strconv.Itoa(item.ID)`.
+- O import da biblioteca `strconv` foi removido do repositório, otimizando as dependências do pacote.

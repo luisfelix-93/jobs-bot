@@ -6,7 +6,6 @@ import (
 	"jobs-bot/internal/domain"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -16,7 +15,7 @@ type findworkResponse struct {
 }
 
 type findworkJob struct {
-	ID          int    `json:"id"`
+	ID          string `json:"id"`
 	Role        string `json:"role"`
 	CompanyName string `json:"company_name"`
 	Text        string `json:"text"`
@@ -80,7 +79,7 @@ func (r *Repository) FetchJobs() ([]domain.Job, error) {
 		jobs = append(jobs, domain.Job{
 			Title:           item.Role,
 			Link:            item.URL,
-			GUID:            strconv.Itoa(item.ID),
+			GUID:            item.ID,
 			SourceFeed:      "Findwork",
 			Location:        item.Location,
 			FullDescription: item.Text,
