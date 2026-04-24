@@ -21,3 +21,6 @@ TODO.md
 *.specs.md
 issues/*.md
 PLAN-*.md
+*_api_doc.md
+test_*.go
+response_*.json
