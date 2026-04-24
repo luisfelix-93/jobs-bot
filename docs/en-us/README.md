@@ -1,60 +1,198 @@
 # Jobs Bot
 
-The Jobs Bot is a bot that searches for new job openings on LinkedIn, WeWorkRemotely, and Jobicy through an RSS feed, filters the jobs based on keywords, analyzes compatibility with your resume, and sends the best ones to a Trello board.
+An intelligent job search automation system that monitors multiple job boards, analyzes opportunities against your resume using AI, filters based on your preferences, and organizes results in Trello with daily email summaries.
+
+## Features
+
+- **Multi-Profile Support**: Configure multiple search profiles (e.g., "SRE", "Backend .NET") via `profiles.yaml`.
+- **Intelligent Deduplication**: Uses MongoDB Atlas to track processed jobs and prevent duplicates (90-day retention).
+- **AI Analysis (DeepSeek)**: Analyzes job descriptions against your resume, providing:
+  - Match Score (0-100)
+  - Strengths & Gaps interpretation
+  - Recommendation (Apply/Review/Skip)
+  - *Fallback to Keyword Matching if AI is unavailable.*
+- **Daily Email Summary**: Sends a consolidated HTML email with stats and top recommendations for all profiles.
+- **Trello Integration**: Creates rich cards with AI summaries and tags.
+- **Multiple Sources**:
+  - Himalayas *(free, no API key required)*
+  - JSearch (RapidAPI)
+  - Findwork.dev
+  - Jobicy
+  - WeWorkRemotely
+  - LinkedIn (RSS)
+  - TheirStack
 
 ## Architecture
 
 The project is divided into three main layers:
 
-- **`cmd`**: The application's entry layer, where initialization and dependency injection are done.
+- **`cmd`**: The application's entry point, where initialization and dependency injection are done.
 - **`internal`**: The main application layer, divided into:
-    - **`application`**: The service layer, which orchestrates the business logic.
-    - **`domain`**: The domain layer, which contains the entities and the main business logic.
-    - **`infrastructure`**: The infrastructure layer, which contains the implementations of repositories and external services.
-- **`config`**: The configuration layer, which loads the application's settings from environment variables.
+  - **`application`**: The service layer, which orchestrates the business logic (`JobService`).
+  - **`domain`**: The domain layer, which contains the entities (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`) and business logic (`JobFilter`, `ResumeAnalyzer`).
+  - **`infrastructure`**: The infrastructure layer, which contains implementations for external services:
+    - **Job Sources**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`
+    - **AI**: `deepseek`
+    - **Notifications**: `trello`, `email`
+    - **Persistence**: `mongodb`
+- **`config`**: The configuration layer, which loads settings from `profiles.yaml` and environment variables.
 
-## Resume Analysis
+### Domain Entities
 
-One of the main features of the bot is the ability to analyze a job description and compare it with the content of a resume file in `.txt` format. The bot calculates a compatibility percentage based on keywords and reports which ones were found and which are missing.
+| Entity | Description |
+|--------|-------------|
+| `Job` | Raw job data from any source (title, company, description, URL, etc.) |
+| `ProcessedJob` | Job stored in MongoDB with analysis results and TTL |
+| `AIAnalysis` | DeepSeek-generated evaluation (score, strengths, gaps, recommendation) |
+| `ResumeAnalysis` | Keyword-based matching results |
+| `ProfileStats` | Per-profile processing statistics |
 
-The analysis result is added to the Trello card, making it easier to decide whether to apply for the job or not. The card title will contain the job source and the job title, and the description will have the analysis details.
+### Workflow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    config/profiles.yaml + .env              │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────┐
+│                     cmd/bot/main.go                          │
+│  - Load profiles  - Initialize MongoDB                       │
+│  - Initialize DeepSeek (optional)  - Build repositories     │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+     ┌──────────────────────────┼──────────────────────────┐
+     │                          │                          │
+     ▼                          ▼                          ▼
+┌─────────────┐          ┌─────────────┐           ┌─────────────┐
+│ Job Sources │          │   DeepSeek  │           │   Email     │
+│ (6 concurrent)         │    AI       │           │  Summary    │
+└──────┬──────┘          └─────────────┘           └─────────────┘
+       │                                                  │
+       ▼                                                  ▼
+┌──────────────────────────────────────┐         ┌─────────────┐
+│           JobService                 │         │   Trello    │
+│                                      │         │   Service   │
+│  - Fetch jobs (parallel)             │         └─────────────┘
+│  - Filter & rank by keywords         │                                  
+│  - Deduplicate (MongoDB)             │
+│  - AI analysis / keyword fallback    │
+│  - Store with 90-day TTL             │
+└──────────────────────────────────────┘
+```
 
 ## Configuration
 
-The bot is configured through environment variables, which can be defined in an `.env` file in the project's root.
+### 1. Environment Variables (`.env`)
 
-| Variable | Description |
-| --- | --- |
-| `LINKEDIN_RSS_URL` | The URL of the LinkedIn RSS feed with the job search filters. |
-| `WEWORKREMOTELY_RSS_URL` | The URL of the WeWorkRemotely RSS feed with the job search filters. |
-| `JOBICY_RSS_URL` | The URL of the Jobicy RSS feed with the job search filters. |
-| `TRELLO_API_KEY` | The Trello API key. |
-| `TRELLO_API_TOKEN` | The Trello API token. |
-| `TRELLO_LIST_ID` | The ID of the Trello list where the job cards will be created. |
-| `POSITIVE_KEYWORDS` | A comma-separated list of keywords to filter the jobs. |
-| `NEGATIVE_KEYWORDS` | A comma-separated list of keywords to exclude the jobs. |
-| `JOB_LIMIT` | The maximum number of jobs to be sent to Trello. |
-| `RESUME_FILE_PATH` | The path to the resume file in `.txt` format. |
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `TRELLO_API_KEY` | Trello API key | Yes |
+| `TRELLO_API_TOKEN` | Trello API token | Yes |
+| `MONGO_URI` | MongoDB connection string | Yes |
+| `DEEPSEEK_API_KEY` | DeepSeek API key for AI analysis | Recommended |
+| `JSEARCH_API_KEY` | RapidAPI key for JSearch | Optional |
+| `FINDWORK_API_KEY` | findwork.dev API key | Optional |
+| `THEIRSTACK_API_KEY` | TheirStack API key | Optional |
 
-## Keywords
+> **Note:** The Himalayas source requires no API key and is enabled simply by setting `himalayas_query` in `profiles.yaml`.
+| `SMTP_HOST` | SMTP server host | For email |
+| `SMTP_PORT` | SMTP server port | For email |
+| `SMTP_USER` | SMTP username | For email |
+| `SMTP_PASSWORD` | SMTP password or app password | For email |
+| `EMAIL_TO` | Recipient email address | For email |
+| `JOB_LIMIT` | Max jobs per profile (default: 10) | No |
 
-The `POSITIVE_KEYWORDS` are used for both the initial job filtering and the resume compatibility analysis. The bot checks which of these keywords are present in the job description and in your resume to calculate the score.
+### 2. Profiles (`profiles.yaml`)
 
-## How to run
+Define your search profiles in the root directory:
 
-1. Clone the repository:
-```bash
-git clone https://github.com/luisfelix-93/jobs-bot.git
+```yaml
+profiles:
+  - name: "SRE-Platform"
+    resume_path: "curriculos/RESUME_SRE.md"
+    positive_keywords:
+      - "Kubernetes"
+      - "Go"
+      - "AWS"
+      - "Terraform"
+    negative_keywords:
+      - "Java"
+      - "Junior"
+    trello_list_id: "your_trello_list_id"
+    sources:
+      jsearch_query: "SRE Remote"
+      findwork_search: "devops"
+      theirstack_url: "https://api.theirstack.com/v1/jobs/search"
+      himalayas_query: "golang devops kubernetes sre platform engineer"
+
+  - name: "DotNet-Backend"
+    resume_path: "curriculos/RESUME_DOTNET.md"
+    positive_keywords:
+      - ".NET"
+      - "C#"
+      - "SQL Server"
+    negative_keywords:
+      - "Java"
+      - "Junior"
+    trello_list_id: "your_other_list_id"
+    sources:
+      jsearch_query: ".NET Backend Remote"
+      himalayas_query: "dotnet c# backend asp.net azure"
 ```
-2. Create a resume file in `.txt` format in the project's root (or in another location) and add your resume's content to it.
 
-3. Create an `.env` file in the project's root and add the environment variables, as per the [Configuration](#configuration) section. Make sure that `RESUME_FILE_PATH` points to your resume file.
+### 3. Resume Files
 
-4. Install the dependencies:
-```bash
-go mod tidy
-```
-5. Run the bot:
-```bash
-go run cmd/bot/main.go
-```
+Place your resume files in the `curriculos/` directory. Files should be in markdown format (`.md`).
+
+## How to Run
+
+### Local Development
+
+1. Start local MongoDB (if not using Atlas):
+   ```bash
+   docker compose up -d
+   ```
+
+2. Install dependencies:
+   ```bash
+   go mod tidy
+   ```
+
+3. Run the bot:
+   ```bash
+   go run cmd/bot/main.go
+   ```
+
+### GitHub Actions
+
+The workflow `.github/workflows/schedule.yml` runs automatically Mon-Fri at 09:00 UTC.
+
+Add the following **Secrets** in your GitHub Repository settings:
+- `MONGO_URI`
+- `TRELLO_API_KEY`, `TRELLO_API_TOKEN`
+- `DEEPSEEK_API_KEY`, `JSEARCH_API_KEY`, `FINDWORK_API_KEY`, `THEIRSTACK_API_KEY`
+
+> The Himalayas source requires no secret — just configure `himalayas_query` in `profiles.yaml`.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
+
+## Resume Analysis
+
+The bot analyzes job descriptions against your resume using two methods:
+
+1. **AI Analysis (DeepSeek)**: Compares job description with resume content to generate:
+   - Match Score (0-100)
+   - Identified strengths
+   - Skill gaps
+   - Recommendation (Apply/Review/Skip)
+
+2. **Keyword Fallback**: If AI is unavailable, the bot performs keyword matching to calculate a compatibility percentage and identify found/missing keywords.
+
+Jobs with AI score >= 50 are sent to Trello; lower-scoring jobs are saved but not notified.
+
+## Statistics Tracked
+
+For each profile, the system tracks:
+- Total jobs found across all sources
+- Jobs remaining after filtering
+- Jobs notified (score >= 50)
+- Jobs below threshold (saved but not notified)

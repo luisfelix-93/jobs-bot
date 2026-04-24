@@ -26,6 +26,7 @@ profiles:
       findwork_search: "golang devops"
       findwork_location: "remote"
       theirstack_url: "https://api.theirstack.com/v1/jobs/search"
+      himalayas_query: "golang devops kubernetes sre platform engineer"
 
   - name: "DotNet-Backend"
     resume_path: "curriculos/Luis_Felipe_Felix_Filho_Resume.md"
@@ -53,3 +54,4 @@ profiles:
       findwork_search: "dotnet backend"
       findwork_location: "remote"
       theirstack_url: "https://api.theirstack.com/v1/jobs/search"
+      himalayas_query: "dotnet c# backend asp.net azure"

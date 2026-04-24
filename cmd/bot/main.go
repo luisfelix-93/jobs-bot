@@ -10,6 +10,7 @@ import (
 	deepseekai "jobs-bot/internal/infrastructure/deepseek"
 	"jobs-bot/internal/infrastructure/email"
 	"jobs-bot/internal/infrastructure/findwork"
+	"jobs-bot/internal/infrastructure/himalayas"
 	"jobs-bot/internal/infrastructure/jobicy"
 	"jobs-bot/internal/infrastructure/jsearch"
 	"jobs-bot/internal/infrastructure/linkedin"
@@ -135,6 +136,11 @@ func buildRepos(sources config.Sources, cfg *config.Config, profile config.Profi
 		repos = append(repos, theirstack.NewJobRepository(cfg.TheirStackAPIKey, profile))
 	} else if sources.TheirStackURL != "" {
 		log.Println("  - Fonte: TheirStack IGNORADA (API Key não configurada)")
+	}
+
+	if sources.HimalayasQuery != "" {
+		log.Println("  + Fonte: Himalayas")
+		repos = append(repos, himalayas.NewJobRepository(profile.Name, sources.HimalayasQuery))
 	}
 
 	return repos

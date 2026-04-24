@@ -1,60 +1,199 @@
 # Jobs Bot
 
-O Jobs Bot é um bot que busca novas vagas de emprego no LinkedIn e WeWorkRemotely através de um feed RSS, e no Jobicy através de sua API JSON. Ele então filtra as vagas com base em palavras-chave, analisa a compatibilidade com o seu currículo e envia as melhores para um quadro do Trello.
+Um sistema inteligente de automação de busca de empregos que monitora múltiplos sites de vagas, analisa oportunidades contra seu currículo usando IA, filtra baseado em suas preferências e organiza os resultados no Trello com resumos diários por email.
+
+## Funcionalidades
+
+- **Suporte a Múltiplos Perfis**: Configure múltiplos perfis de busca (ex: "SRE", "Backend .NET") via `profiles.yaml`.
+- **Desduplicação Inteligente**: Usa MongoDB Atlas para rastrear vagas processadas e evitar duplicatas (retenção de 90 dias).
+- **Análise por IA (DeepSeek)**: Analisa descrições de vagas contra seu currículo, fornecendo:
+  - Pontuação de Compatibilidade (0-100)
+  - Pontos Fortes e Lacunas
+  - Recomendação (Candidatar/Revisar/Pular)
+  - *Fallback para correspondência de palavras-chave se a IA estiver indisponível.*
+- **Resumo Diário por Email**: Envia um email HTML consolidado com estatísticas e principais recomendações para todos os perfis.
+- **Integração com Trello**: Cria cards ricos com resumos de IA e tags.
+- **Múltiplas Fontes**:
+  - Himalayas *(gratuito, sem necessidade de API Key)*
+  - JSearch (RapidAPI)
+  - Findwork.dev
+  - Jobicy
+  - WeWorkRemotely
+  - LinkedIn (RSS)
+  - TheirStack
 
 ## Arquitetura
 
 O projeto é dividido em três camadas principais:
 
-- **`cmd`**: A camada de entrada da aplicação, onde a inicialização e a injeção de dependência são feitas.
+- **`cmd`**: O ponto de entrada da aplicação, onde a inicialização e a injeção de dependência são feitas.
 - **`internal`**: A camada principal da aplicação, dividida em:
-    - **`application`**: A camada de serviço, que orquestra a lógica de negócios.
-    - **`domain`**: A camada de domínio, que contém as entidades e a lógica de negócios principal.
-    - **`infrastructure`**: A camada de infraestrutura, que contém as implementações de repositórios e serviços externos.
-- **`config`**: A camada de configuração, que carrega as configurações da aplicação a partir de variáveis de ambiente.
+  - **`application`**: A camada de serviço, que orquestra a lógica de negócios (`JobService`).
+  - **`domain`**: A camada de domínio, que contém as entidades (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`) e a lógica de negócios (`JobFilter`, `ResumeAnalyzer`).
+  - **`infrastructure`**: A camada de infraestrutura, que contém implementações para serviços externos:
+    - **Fontes de Vagas**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`
+    - **IA**: `deepseek`
+    - **Notificações**: `trello`, `email`
+    - **Persistência**: `mongodb`
+- **`config`**: A camada de configuração, que carrega as configurações do `profiles.yaml` e variáveis de ambiente.
 
-## Análise de Currículo
+### Entidades de Domínio
 
-Uma das funcionalidades principais do bot é a capacidade de analisar a descrição de uma vaga e compará-la com o conteúdo de um arquivo de currículo em formato `.txt`. O bot calcula uma porcentagem de compatibilidade com base nas palavras-chave e informa quais foram encontradas e quais estão faltando.
+| Entidade | Descrição |
+|----------|-----------|
+| `Job` | Dados brutos da vaga de qualquer fonte (título, empresa, descrição, URL, etc.) |
+| `ProcessedJob` | Vaga armazenada no MongoDB com resultados da análise e TTL |
+| `AIAnalysis` | Avaliação gerada pelo DeepSeek (pontuação, pontos fortes, lacunas, recomendação) |
+| `ResumeAnalysis` | Resultados da correspondência por palavras-chave |
+| `ProfileStats` | Estatísticas de processamento por perfil |
 
-O resultado da análise é adicionado ao card do Trello, facilitando a decisão de se candidatar ou não para a vaga. O título do card conterá a fonte da vaga e o nome da vaga, e a descrição terá os detalhes da análise.
+### Fluxo de Trabalho
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    config/profiles.yaml + .env              │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────┐
+│                     cmd/bot/main.go                          │
+│  - Carregar perfis  - Inicializar MongoDB                    │
+│  - Inicializar DeepSeek (opcional)  - Construir repositórios │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+     ┌──────────────────────────┼──────────────────────────┐
+     │                          │                          │
+     ▼                          ▼                          ▼
+┌─────────────┐          ┌─────────────┐           ┌─────────────┐
+│ Fontes de   │          │   DeepSeek  │           │   Email     │
+│ Vagas (6)   │          │    IA       │           │  Resumo     │
+│ concurrentes│          └─────────────┘           └─────────────┘
+└──────┬──────┘                                                  │
+       │                                                  ▼
+       ▼                                          ┌─────────────┐
+┌──────────────────────────────────────┐          │   Trello    │
+│           JobService                 │          │   Serviço   │
+│                                      │          └─────────────┘
+│  - Buscar vagas (paralelo)           │
+│  - Filtrar & ranquear por palavras   │
+│  - Desduplicar (MongoDB)             │
+│  - Análise IA / fallback palavras    │
+│  - Armazenar com TTL de 90 dias     │
+└──────────────────────────────────────┘
+```
 
 ## Configuração
 
-O bot é configurado através de variáveis de ambiente, que podem ser definidas em um arquivo `.env` na raiz do projeto.
+### 1. Variáveis de Ambiente (`.env`)
 
-| Variável | Descrição |
-| --- | --- |
-| `LINKEDIN_RSS_URL` | A URL do feed RSS do LinkedIn com os filtros de busca de vagas. |
-| `WEWORKREMOTELY_RSS_URL` | A URL do feed RSS do WeWorkRemotely com os filtros de busca de vagas. |
-| `JOBICY_RSS_URL` | A URL do feed RSS do Jobicy com os filtros de busca de vagas. |
-| `TRELLO_API_KEY` | A chave da API do Trello. |
-| `TRELLO_API_TOKEN` | O token da API do Trello. |
-| `TRELLO_LIST_ID` | O ID da lista do Trello onde os cards de vagas serão criados. |
-| `POSITIVE_KEYWORDS` | Uma lista de palavras-chave separadas por vírgula para filtrar as vagas. |
-| `NEGATIVE_KEYWORDS` | Uma lista de palavras-chave separadas por vírgula para excluir as vagas. |
-| `JOB_LIMIT` | O número máximo de vagas a serem enviadas para o Trello. |
-| `RESUME_FILE_PATH` | O caminho para o arquivo de currículo em formato `.txt`. |
+| Variável | Descrição | Necessário |
+|----------|-----------|-----------|
+| `TRELLO_API_KEY` | Chave da API do Trello | Sim |
+| `TRELLO_API_TOKEN` | Token da API do Trello | Sim |
+| `MONGO_URI` | String de conexão do MongoDB | Sim |
+| `DEEPSEEK_API_KEY` | Chave da API do DeepSeek para análise de IA | Recomendado |
+| `JSEARCH_API_KEY` | Chave do RapidAPI para JSearch | Opcional |
+| `FINDWORK_API_KEY` | Chave da API do findwork.dev | Opcional |
+| `THEIRSTACK_API_KEY` | Chave da API do TheirStack | Opcional |
 
-## Palavras-Chave
+> **Nota:** A fonte do Himalayas não requer chave de API. Basta configurar `himalayas_query` no `profiles.yaml`.
+| `SMTP_HOST` | Host do servidor SMTP | Para email |
+| `SMTP_PORT` | Porta do servidor SMTP | Para email |
+| `SMTP_USER` | Usuário SMTP | Para email |
+| `SMTP_PASSWORD` | Senha SMTP ou senha de app | Para email |
+| `EMAIL_TO` | Endereço de email do destinatário | Para email |
+| `JOB_LIMIT` | Máx de vagas por perfil (padrão: 10) | Não |
 
-As `POSITIVE_KEYWORDS` são usadas tanto para a filtragem inicial de vagas quanto para a análise de compatibilidade do currículo. O bot verifica quais dessas palavras-chave estão presentes na descrição da vaga e no seu currículo para calcular a pontuação.
+### 2. Perfis (`profiles.yaml`)
 
-## Como executar
+Defina seus perfis de busca no diretório raiz:
 
-1. Clone o repositório:
-```bash
-git clone https://github.com/luisfelix-93/jobs-bot.git
+```yaml
+profiles:
+  - name: "SRE-Platform"
+    resume_path: "curriculos/RESUME_SRE.md"
+    positive_keywords:
+      - "Kubernetes"
+      - "Go"
+      - "AWS"
+      - "Terraform"
+    negative_keywords:
+      - "Java"
+      - "Junior"
+    trello_list_id: "seu_id_da_lista_trello"
+    sources:
+      jsearch_query: "SRE Remote"
+      findwork_search: "devops"
+      theirstack_url: "https://api.theirstack.com/v1/jobs/search"
+      himalayas_query: "golang devops kubernetes sre platform engineer"
+
+  - name: "DotNet-Backend"
+    resume_path: "curriculos/RESUME_DOTNET.md"
+    positive_keywords:
+      - ".NET"
+      - "C#"
+      - "SQL Server"
+    negative_keywords:
+      - "Java"
+      - "Junior"
+    trello_list_id: "id_de_outra_lista_trello"
+    sources:
+      jsearch_query: ".NET Backend Remote"
+      himalayas_query: "dotnet c# backend asp.net azure"
 ```
-2. Crie um arquivo de currículo em formato `.txt` na raiz do projeto (ou em outro local) e adicione o conteúdo do seu currículo a ele.
 
-3. Crie um arquivo `.env` na raiz do projeto e adicione as variáveis de ambiente, conforme a seção de [Configuração](#configuração). Certifique-se de que `RESUME_FILE_PATH` aponte para o seu arquivo de currículo.
+### 3. Arquivos de Currículo
 
-4. Instale as dependências:
-```bash
-go mod tidy
-```
-5. Execute o bot:
-```bash
-go run cmd/bot/main.go
-```
+Coloque seus arquivos de currículo no diretório `curriculos/`. Os arquivos devem estar em formato markdown (`.md`).
+
+## Como Executar
+
+### Desenvolvimento Local
+
+1. Inicie o MongoDB local (se não estiver usando Atlas):
+   ```bash
+   docker compose up -d
+   ```
+
+2. Instale as dependências:
+   ```bash
+   go mod tidy
+   ```
+
+3. Execute o bot:
+   ```bash
+   go run cmd/bot/main.go
+   ```
+
+### GitHub Actions
+
+O workflow `.github/workflows/schedule.yml` executa automaticamente de Seg-Sex às 09:00 UTC.
+
+Adicione os seguintes **Secrets** nas configurações do seu Repositório GitHub:
+- `MONGO_URI`
+- `TRELLO_API_KEY`, `TRELLO_API_TOKEN`
+- `DEEPSEEK_API_KEY`, `JSEARCH_API_KEY`, `FINDWORK_API_KEY`, `THEIRSTACK_API_KEY`
+
+> A fonte do Himalayas não requer secret — configure apenas o `himalayas_query` no `profiles.yaml`.
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
+
+## Análise de Currículo
+
+O bot analisa descrições de vagas contra seu currículo usando dois métodos:
+
+1. **Análise por IA (DeepSeek)**: Compara a descrição da vaga com o conteúdo do currículo para gerar:
+   - Pontuação de Compatibilidade (0-100)
+   - Pontos fortes identificados
+   - Lacunas de habilidades
+   - Recomendação (Candidatar/Revisar/Pular)
+
+2. **Fallback por Palavras-Chave**: Se a IA estiver indisponível, o bot realiza correspondência de palavras-chave para calcular uma porcentagem de compatibilidade e identificar palavras-chave encontradas/faltantes.
+
+Vagas com pontuação de IA >= 50 são enviadas ao Trello; vagas com pontuação menor são salvas mas não são notificadas.
+
+## Estatísticas Rastreadas
+
+Para cada perfil, o sistema rastreia:
+- Total de vagas encontradas em todas as fontes
+- Vagas restantes após filtragem
+- Vagas notificadas (pontuação >= 50)
+- Vagas abaixo do limiar (salvas mas não notificadas)

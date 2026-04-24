@@ -44,6 +44,7 @@ type Sources struct {
 	FindworkSearch   string `yaml:"findwork_search"`
 	FindworkLocation string `yaml:"findwork_location"`
 	TheirStackURL    string `yaml:"theirstack_url"`
+	HimalayasQuery   string `yaml:"himalayas_query"`
 }
 
 type profilesFile struct {
