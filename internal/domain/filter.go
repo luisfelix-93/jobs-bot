@@ -17,7 +17,7 @@ func NewJobFilter(positive, negative []string) *JobFilter {
 	}
 }
 
-func (f *JobFilter) FilterAndRankJobs(jobs []Job, limit int) []Job {
+func (f *JobFilter) FilterAndRankJobs(jobs []Job) []Job {
 
 	type rankedJob struct {
 		job   Job
@@ -47,10 +47,9 @@ func (f *JobFilter) FilterAndRankJobs(jobs []Job, limit int) []Job {
 		return rankedJobs[i].score > rankedJobs[j].score
 	})
 
-	// Prepara o retorno simples
 	var bestJobs []Job
-	for i := 0; i < len(rankedJobs) && i < limit; i++ {
-		bestJobs = append(bestJobs, rankedJobs[i].job)
+	for _, rj := range rankedJobs {
+		bestJobs = append(bestJobs, rj.job)
 	}
 
 	return bestJobs

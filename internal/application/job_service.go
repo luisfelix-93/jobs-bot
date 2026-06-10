@@ -77,18 +77,23 @@ func (s *JobService) ProcessNewJobs() (domain.ProfileStats, error) {
 	stats.TotalFound = len(allJobs)
 	log.Printf("[%s] Encontradas %d vagas no total. Filtrando...", s.profileName, len(allJobs))
 
-	bestJobs := s.filter.FilterAndRankJobs(allJobs, s.limit)
-	stats.TotalFiltered = len(bestJobs)
-	log.Printf("[%s] Após filtragem, %d vagas selecionadas.", s.profileName, len(bestJobs))
+	rankedJobs := s.filter.FilterAndRankJobs(allJobs)
+	stats.TotalFiltered = len(rankedJobs)
+	log.Printf("[%s] Após filtragem, %d vagas elegíveis.", s.profileName, len(rankedJobs))
 
-	if len(bestJobs) == 0 {
-		log.Printf("[%s] Nenhuma vaga nova corresponde aos critérios.", s.profileName)
+	if len(rankedJobs) == 0 {
+		log.Printf("[%s] Nenhuma vaga corresponde aos critérios.", s.profileName)
 		return stats, nil
 	}
 
 	var notifiedJobs []domain.ProcessedJob
+	newJobsProcessed := 0
 
-	for _, job := range bestJobs {
+	for _, job := range rankedJobs {
+		if s.limit > 0 && newJobsProcessed >= s.limit {
+			break
+		}
+
 		guid := fmt.Sprintf("%s-%s", job.SourceFeed, job.GUID)
 
 		exists, err := s.store.Exists(guid, s.profileName)
@@ -145,6 +150,8 @@ func (s *JobService) ProcessNewJobs() (domain.ProfileStats, error) {
 		if shouldNotify {
 			notifiedJobs = append(notifiedJobs, processedJob)
 		}
+
+		newJobsProcessed++
 	}
 
 	// Sort notified jobs by score (AI or MatchPercentage) to pick top ones
@@ -160,8 +167,8 @@ func (s *JobService) ProcessNewJobs() (domain.ProfileStats, error) {
 		stats.TopJobs = notifiedJobs
 	}
 
-	log.Printf("[%s] Concluído: %d notificadas, %d duplicadas, %d abaixo do threshold.",
-		s.profileName, stats.TotalNotified, stats.TotalSkipped, stats.BelowThreshold)
+	log.Printf("[%s] Concluído: %d novas processadas, %d notificadas, %d duplicadas, %d abaixo do threshold.",
+		s.profileName, newJobsProcessed, stats.TotalNotified, stats.TotalSkipped, stats.BelowThreshold)
 	return stats, nil
 }
 
