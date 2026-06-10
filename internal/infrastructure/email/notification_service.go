@@ -3,6 +3,7 @@ package email
 import (
 	"fmt"
 	"jobs-bot/internal/domain"
+	"log"
 	"net/smtp"
 	"time"
 )
@@ -27,7 +28,7 @@ func NewEmailService(host string, port int, user, password, to string) *EmailSer
 
 func (s *EmailService) SendSummary(stats []domain.ProfileStats) error {
 	if s.host == "" || s.to == "" {
-		// Email não configurado, ignora silenciosamente ou loga aviso
+		log.Println("AVISO: Envio de e-mail de resumo pulado (SMTP_HOST ou EMAIL_TO não configurado).")
 		return nil
 	}
 
