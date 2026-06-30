@@ -6,13 +6,14 @@ An intelligent job search automation system that monitors multiple job boards, a
 
 - **Multi-Profile Support**: Configure multiple search profiles (e.g., "SRE", "Backend .NET") via `profiles.yaml`.
 - **Intelligent Deduplication**: Uses MongoDB Atlas to track processed jobs and prevent duplicates (90-day retention).
+- **Normalization Pipeline**: Structures raw data from multiple sources into a standardized model with seniority, work mode, employment type, technical skills, salary range, and normalized location.
 - **AI Analysis (DeepSeek)**: Analyzes job descriptions against your resume, providing:
   - Match Score (0-100)
   - Strengths & Gaps interpretation
   - Recommendation (Apply/Review/Skip)
   - *Fallback to Keyword Matching if AI is unavailable.*
-- **Daily Email Summary**: Sends a consolidated HTML email with stats and top recommendations for all profiles.
-- **Trello Integration**: Creates rich cards with AI summaries and tags.
+- **Daily Email Summary**: Sends a consolidated HTML email with stats, seniority/work mode/salary badges, and top recommendations for all profiles.
+- **Trello Integration**: Creates rich cards with seniority, work mode, company, and AI score tags, plus a normalized data section.
 - **Multiple Sources**:
   - Himalayas *(free, no API key required)*
   - JSearch (RapidAPI)
@@ -29,7 +30,7 @@ The project is divided into three main layers:
 - **`cmd`**: The application's entry point, where initialization and dependency injection are done.
 - **`internal`**: The main application layer, divided into:
   - **`application`**: The service layer, which orchestrates the business logic (`JobService`).
-  - **`domain`**: The domain layer, which contains the entities (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`) and business logic (`JobFilter`, `ResumeAnalyzer`).
+  - **`domain`**: The domain layer, which contains the entities (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`), business logic (`JobFilter`, `ResumeAnalyzer`), and the **normalization pipeline** (`normalization/`).
   - **`infrastructure`**: The infrastructure layer, which contains implementations for external services:
     - **Job Sources**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`
     - **AI**: `deepseek`
@@ -41,8 +42,8 @@ The project is divided into three main layers:
 
 | Entity | Description |
 |--------|-------------|
-| `Job` | Raw job data from any source (title, company, description, URL, etc.) |
-| `ProcessedJob` | Job stored in MongoDB with analysis results and TTL |
+| `Job` | Raw job data from any source (title, company, description, URL, etc.), now with normalized fields (seniority, work mode, skills, salary, etc.) |
+| `ProcessedJob` | Job stored in MongoDB with analysis results, TTL, and normalized data |
 | `AIAnalysis` | DeepSeek-generated evaluation (score, strengths, gaps, recommendation) |
 | `ResumeAnalysis` | Keyword-based matching results |
 | `ProfileStats` | Per-profile processing statistics |
@@ -60,24 +61,44 @@ The project is divided into three main layers:
 │  - Initialize DeepSeek (optional)  - Build repositories     │
 └──────────────────────────────┬──────────────────────────────┘
                                │
-     ┌──────────────────────────┼──────────────────────────┐
-     │                          │                          │
-     ▼                          ▼                          ▼
-┌─────────────┐          ┌─────────────┐           ┌─────────────┐
-│ Job Sources │          │   DeepSeek  │           │   Email     │
-│ (6 concurrent)         │    AI       │           │  Summary    │
-└──────┬──────┘          └─────────────┘           └─────────────┘
-       │                                                  │
-       ▼                                                  ▼
-┌──────────────────────────────────────┐         ┌─────────────┐
-│           JobService                 │         │   Trello    │
-│                                      │         │   Service   │
-│  - Fetch jobs (parallel)             │         └─────────────┘
-│  - Filter & rank by keywords         │                                  
-│  - Deduplicate (MongoDB)             │
-│  - AI analysis / keyword fallback    │
-│  - Store with 90-day TTL             │
-└──────────────────────────────────────┘
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      JobService                               │
+│                                                               │
+│  1. Fetch jobs (parallel)                                     │
+│  2. NORMALIZE (pipeline with 7 normalizers)                   │
+│     ├── Extract seniority from title                          │
+│     ├── Detect work mode (Remote/Hybrid/On-site)              │
+│     ├── Detect employment type                                │
+│     ├── Extract skills from description                       │
+│     ├── Parse salary range                                    │
+│     ├── Normalize location                                    │
+│     └── Clean title                                           │
+│  3. Filter & rank by keywords                                 │
+│  4. Deduplicate (MongoDB)                                     │
+│  5. AI analysis / keyword fallback                            │
+│  6. Store with 90-day TTL                                     │
+└──────────────────────────────────────┬───────────────────────┘
+                                       │
+          ┌────────────────────────────┼────────────────────────┐
+          │                            │                        │
+          ▼                            ▼                        ▼
+   ┌─────────────┐             ┌─────────────┐          ┌─────────────┐
+   │ Job Sources │             │   DeepSeek  │          │   Email     │
+   │ (7 concurrent)            │    AI       │          │  Summary    │
+   └──────┬──────┘             └─────────────┘          │  w/ badges  │
+          │                                             └─────────────┘
+          ▼                                                    │
+   ┌──────────────────────────────────────┐          ┌─────────────┐
+   │           JobService                 │          │   Trello    │
+   │                                      │          │  w/ tags    │
+   │  - Fetch jobs (parallel)             │          │  & data     │
+   │  - Normalize (Pipeline)              │          └─────────────┘
+   │  - Filter & rank by keywords         │
+   │  - Deduplicate (MongoDB)             │
+   │  - AI analysis / keyword fallback    │
+   │  - Store with 90-day TTL             │
+   └──────────────────────────────────────┘
 ```
 
 ## Configuration
@@ -93,14 +114,14 @@ The project is divided into three main layers:
 | `JSEARCH_API_KEY` | RapidAPI key for JSearch | Optional |
 | `FINDWORK_API_KEY` | findwork.dev API key | Optional |
 | `THEIRSTACK_API_KEY` | TheirStack API key | Optional |
-
-> **Note:** The Himalayas source requires no API key and is enabled simply by setting `himalayas_query` in `profiles.yaml`.
 | `SMTP_HOST` | SMTP server host | For email |
 | `SMTP_PORT` | SMTP server port | For email |
 | `SMTP_USER` | SMTP username | For email |
 | `SMTP_PASSWORD` | SMTP password or app password | For email |
 | `EMAIL_TO` | Recipient email address | For email |
 | `JOB_LIMIT` | Max jobs per profile (default: 10) | No |
+
+> **Note:** The Himalayas source requires no API key and is enabled simply by setting `himalayas_query` in `profiles.yaml`.
 
 ### 2. Profiles (`profiles.yaml`)
 
@@ -171,9 +192,23 @@ Add the following **Secrets** in your GitHub Repository settings:
 - `MONGO_URI`
 - `TRELLO_API_KEY`, `TRELLO_API_TOKEN`
 - `DEEPSEEK_API_KEY`, `JSEARCH_API_KEY`, `FINDWORK_API_KEY`, `THEIRSTACK_API_KEY`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
 
 > The Himalayas source requires no secret — just configure `himalayas_query` in `profiles.yaml`.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
+
+## Normalization Pipeline
+
+Between fetching and filtering, a pipeline with 7 normalizers transforms raw data into a standardized model:
+
+| Normalizer | What it does | Example |
+|-----------|-------------|---------|
+| **Seniority** | Extracts seniority from title | `"Senior Go Engineer"` → `Senior` |
+| **Work Mode** | Detects Remote/Hybrid/On-site | `"Remote"` in location → `Remote` |
+| **Employment Type** | Normalizes employment type | `"CLT"` → `FullTime` |
+| **Title** | Removes prefixes/suffixes from title | `"Google - Dev (Remote)"` → `"Dev"` |
+| **Skills** | Extracts technical skills from description | `"Go, Kubernetes, AWS"` |
+| **Salary** | Parses salary range from text | `"$120k-$150k"` → `USD 120000-150000` |
+| **Location** | Normalizes country names | `"USA"` → `"United States"` |
 
 ## Resume Analysis
 

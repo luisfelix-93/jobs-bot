@@ -3,6 +3,7 @@ package application
 import (
 	"fmt"
 	"jobs-bot/internal/domain"
+	"jobs-bot/internal/domain/normalization"
 	"log"
 	"sort"
 	"sync"
@@ -18,6 +19,7 @@ type JobService struct {
 	analyzer       *domain.ResumeAnalyzer
 	aiAnalyzer     domain.AIAnalyzer
 	store          domain.JobStore
+	pipeline       *normalization.Pipeline
 	resumeContent  string
 	filterKeywords []string
 	profileName    string
@@ -31,6 +33,7 @@ func NewJobService(
 	analyzer *domain.ResumeAnalyzer,
 	aiAnalyzer domain.AIAnalyzer,
 	store domain.JobStore,
+	pipeline *normalization.Pipeline,
 	resumeContent string,
 	filterKeywords []string,
 	profileName string,
@@ -43,6 +46,7 @@ func NewJobService(
 		analyzer:       analyzer,
 		aiAnalyzer:     aiAnalyzer,
 		store:          store,
+		pipeline:       pipeline,
 		resumeContent:  resumeContent,
 		filterKeywords: filterKeywords,
 		profileName:    profileName,
@@ -75,7 +79,26 @@ func (s *JobService) ProcessNewJobs() (domain.ProfileStats, error) {
 	wg.Wait()
 
 	stats.TotalFound = len(allJobs)
-	log.Printf("[%s] Encontradas %d vagas no total. Filtrando...", s.profileName, len(allJobs))
+	log.Printf("[%s] Encontradas %d vagas no total. Normalizando...", s.profileName, len(allJobs))
+
+	if s.pipeline != nil {
+		allJobs = s.pipeline.NormalizeAll(allJobs)
+
+		var withSeniority, withWorkMode, withSalary int
+		for _, j := range allJobs {
+			if j.Seniority != "" {
+				withSeniority++
+			}
+			if j.WorkMode != "" {
+				withWorkMode++
+			}
+			if j.SalaryMin > 0 {
+				withSalary++
+			}
+		}
+		log.Printf("[%s] Normalização concluída. Stats - Seniority: %d/%d, WorkMode: %d/%d, Salary: %d/%d",
+			s.profileName, withSeniority, len(allJobs), withWorkMode, len(allJobs), withSalary, len(allJobs))
+	}
 
 	rankedJobs := s.filter.FilterAndRankJobs(allJobs)
 	stats.TotalFiltered = len(rankedJobs)
@@ -141,6 +164,15 @@ func (s *JobService) ProcessNewJobs() (domain.ProfileStats, error) {
 			NotifiedAt:      time.Now(),
 			CreatedAt:       time.Now(),
 			TTLExpireAt:     time.Now().Add(90 * 24 * time.Hour),
+			Company:         job.Company,
+			Seniority:       job.Seniority,
+			WorkMode:        job.WorkMode,
+			EmploymentType:  job.EmploymentType,
+			Skills:          job.Skills,
+			SalaryMin:       job.SalaryMin,
+			SalaryMax:       job.SalaryMax,
+			SalaryCurrency:  job.SalaryCurrency,
+			NormalizedTitle: job.NormalizedTitle,
 		}
 
 		if err := s.store.Save(processedJob); err != nil {

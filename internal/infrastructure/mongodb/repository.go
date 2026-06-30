@@ -37,6 +37,17 @@ type processedJobDoc struct {
 	NotifiedAt      time.Time      `bson:"notified_at"`
 	CreatedAt       time.Time      `bson:"created_at"`
 	TTLExpireAt     time.Time      `bson:"ttl_expire_at"`
+
+	// Normalization fields
+	Company         string         `bson:"company,omitempty"`
+	Seniority       string         `bson:"seniority,omitempty"`
+	WorkMode        string         `bson:"work_mode,omitempty"`
+	EmploymentType  string         `bson:"employment_type,omitempty"`
+	Skills          []string       `bson:"skills,omitempty"`
+	SalaryMin       float64        `bson:"salary_min,omitempty"`
+	SalaryMax       float64        `bson:"salary_max,omitempty"`
+	SalaryCurrency  string         `bson:"salary_currency,omitempty"`
+	NormalizedTitle string         `bson:"normalized_title,omitempty"`
 }
 
 type MongoJobStore struct {
@@ -137,6 +148,15 @@ func (s *MongoJobStore) Save(job domain.ProcessedJob) error {
 		NotifiedAt:      job.NotifiedAt,
 		CreatedAt:       job.CreatedAt,
 		TTLExpireAt:     job.TTLExpireAt,
+		Company:         job.Company,
+		Seniority:       job.Seniority,
+		WorkMode:        job.WorkMode,
+		EmploymentType:  job.EmploymentType,
+		Skills:          job.Skills,
+		SalaryMin:       job.SalaryMin,
+		SalaryMax:       job.SalaryMax,
+		SalaryCurrency:  job.SalaryCurrency,
+		NormalizedTitle: job.NormalizedTitle,
 	}
 
 	_, err := s.collection.InsertOne(ctx, doc)

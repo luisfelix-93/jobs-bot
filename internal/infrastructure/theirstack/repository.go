@@ -63,6 +63,8 @@ func (r *JobRepository) FetchJobs() ([]domain.Job, error) {
 			SourceFeed:      "TheirStack",
 			Location:        "Remote (" + tsJob.CountryCode + ")",
 			FullDescription: tsJob.Description,
+			Company:         tsJob.Company,
+			WorkMode:        "Remote",
 		})
 	}
 

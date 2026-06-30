@@ -83,6 +83,7 @@ func (r *Repository) FetchJobs() ([]domain.Job, error) {
 			SourceFeed:      "Findwork",
 			Location:        item.Location,
 			FullDescription: item.Text,
+			Company:         item.CompanyName,
 		})
 	}
 

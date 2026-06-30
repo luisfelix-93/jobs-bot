@@ -5,6 +5,7 @@ import (
 	"jobs-bot/internal/domain"
 	"log"
 	"net/smtp"
+	"strings"
 	"time"
 )
 
@@ -55,8 +56,43 @@ func (s *EmailService) SendSummary(stats []domain.ProfileStats) error {
 				} else {
 					score = fmt.Sprintf("%.0f%%", job.KeywordAnalysis.MatchPercentage)
 				}
-				body += fmt.Sprintf("<li><b>[%s]</b> <a href=\"%s\">%s</a> (Score: %s)</li>",
-					job.Source, job.Link, job.Title, score)
+
+				metaParts := []string{}
+				if job.Company != "" {
+					metaParts = append(metaParts, fmt.Sprintf("<b>%s</b>", job.Company))
+				}
+				if job.Seniority != "" {
+					metaParts = append(metaParts, fmt.Sprintf("<span style=\"background-color:#e0f0ff;color:#0066cc;padding:2px 6px;border-radius:4px;font-size:11px;margin-right:4px;\">%s</span>", job.Seniority))
+				}
+				if job.WorkMode != "" {
+					metaParts = append(metaParts, fmt.Sprintf("<span style=\"background-color:#e2fbe8;color:#1e7e34;padding:2px 6px;border-radius:4px;font-size:11px;margin-right:4px;\">%s</span>", job.WorkMode))
+				}
+				if job.SalaryMin > 0 {
+					salaryStr := ""
+					if job.SalaryMax > job.SalaryMin {
+						salaryStr = fmt.Sprintf("%s %.0f-%.0f", job.SalaryCurrency, job.SalaryMin, job.SalaryMax)
+					} else {
+						salaryStr = fmt.Sprintf("%s %.0f", job.SalaryCurrency, job.SalaryMin)
+					}
+					metaParts = append(metaParts, fmt.Sprintf("<span style=\"background-color:#fff3cd;color:#856404;padding:2px 6px;border-radius:4px;font-size:11px;margin-right:4px;\">%s</span>", salaryStr))
+				}
+
+				metaStr := ""
+				if len(metaParts) > 0 {
+					metaStr = " — " + strings.Join(metaParts, " ")
+				}
+
+				skillsStr := ""
+				if len(job.Skills) > 0 {
+					limitSkills := job.Skills
+					if len(limitSkills) > 3 {
+						limitSkills = limitSkills[:3]
+					}
+					skillsStr = fmt.Sprintf("<br/><small style=\"color:#666;\">Skills: %s</small>", strings.Join(limitSkills, ", "))
+				}
+
+				body += fmt.Sprintf("<li style=\"margin-bottom: 8px;\"><b>[%s]</b> <a href=\"%s\">%s</a> (Score: %s)%s%s</li>",
+					job.Source, job.Link, job.Title, score, metaStr, skillsStr)
 			}
 			body += "</ul>"
 		}
