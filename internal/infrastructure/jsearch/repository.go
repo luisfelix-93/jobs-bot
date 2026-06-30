@@ -87,6 +87,11 @@ func (r *Repository) FetchJobs() ([]domain.Job, error) {
 			location = "Remote - " + location
 		}
 
+		workMode := ""
+		if item.JobIsRemote {
+			workMode = "Remote"
+		}
+
 		jobs = append(jobs, domain.Job{
 			Title:           item.JobTitle,
 			Link:            item.JobApplyLink,
@@ -94,6 +99,8 @@ func (r *Repository) FetchJobs() ([]domain.Job, error) {
 			SourceFeed:      "JSearch",
 			Location:        location,
 			FullDescription: item.JobDescription,
+			Company:         item.EmployerName,
+			WorkMode:        workMode,
 		})
 	}
 

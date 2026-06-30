@@ -7,6 +7,7 @@ import (
 	"jobs-bot/config"
 	"jobs-bot/internal/application"
 	"jobs-bot/internal/domain"
+	"jobs-bot/internal/domain/normalization"
 	deepseekai "jobs-bot/internal/infrastructure/deepseek"
 	"jobs-bot/internal/infrastructure/email"
 	"jobs-bot/internal/infrastructure/findwork"
@@ -71,6 +72,16 @@ func main() {
 		jobFilter := domain.NewJobFilter(profile.PositiveKeywords, profile.NegativeKeywords)
 		resumeAnalyzer := domain.NewResumeAnalyzer()
 
+		normPipeline := normalization.NewPipeline(
+			normalization.NewSeniorityNormalizer(),
+			normalization.NewWorkModeNormalizer(),
+			normalization.NewEmploymentTypeNormalizer(),
+			normalization.NewTitleNormalizer(),
+			normalization.NewSkillsExtractor(),
+			normalization.NewSalaryNormalizer(),
+			normalization.NewLocationNormalizer(),
+		)
+
 		appService := application.NewJobService(
 			repos,
 			notifier,
@@ -78,6 +89,7 @@ func main() {
 			resumeAnalyzer,
 			aiAnalyzer,
 			store,
+			normPipeline,
 			resumeContent,
 			profile.PositiveKeywords,
 			profile.Name,

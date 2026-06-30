@@ -101,6 +101,19 @@ func (r *JobRepository) fetchPages(base SearchParams) ([]domain.Job, error) {
 
 func mapToDomain(j Job) domain.Job {
 	location := buildLocation(j)
+	var minSal, maxSal float64
+	if j.MinSalary != nil {
+		minSal = *j.MinSalary
+	}
+	if j.MaxSalary != nil {
+		maxSal = *j.MaxSalary
+	}
+
+	seniority := ""
+	if len(j.Seniority) > 0 {
+		seniority = j.Seniority[0]
+	}
+
 	return domain.Job{
 		Title:           j.Title,
 		Link:            j.ApplicationLink,
@@ -108,6 +121,12 @@ func mapToDomain(j Job) domain.Job {
 		SourceFeed:      "Himalayas",
 		Location:        location,
 		FullDescription: j.Description,
+		Company:         j.CompanyName,
+		Seniority:       seniority,
+		EmploymentType:  j.EmploymentType,
+		SalaryMin:       minSal,
+		SalaryMax:       maxSal,
+		SalaryCurrency:  j.Currency,
 	}
 }
 

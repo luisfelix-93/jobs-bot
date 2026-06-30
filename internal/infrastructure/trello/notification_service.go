@@ -31,7 +31,26 @@ func NewTrelloNotifier(apiKey, token, listID string) *TrelloNotifier {
 func (t *TrelloNotifier) Notify(job domain.Job, analysis domain.ResumeAnalysis, aiAnalysis *domain.AIAnalysis) error {
 	apiURL := "https://api.trello.com/1/cards"
 
-	cardName := fmt.Sprintf("[%s] %s", job.SourceFeed, job.Title)
+	var tags []string
+	if aiAnalysis != nil {
+		tags = append(tags, fmt.Sprintf("AI: %d", aiAnalysis.Score))
+	}
+	tags = append(tags, job.SourceFeed)
+	if job.Company != "" {
+		tags = append(tags, job.Company)
+	}
+	if job.Seniority != "" {
+		tags = append(tags, job.Seniority)
+	}
+	if job.WorkMode != "" {
+		tags = append(tags, job.WorkMode)
+	}
+
+	tagPrefix := ""
+	for _, tag := range tags {
+		tagPrefix += fmt.Sprintf("[%s] ", tag)
+	}
+	cardName := fmt.Sprintf("%s%s", tagPrefix, job.Title)
 
 	cleanDescription := htmlTagRegex.ReplaceAllString(job.FullDescription, "")
 
@@ -40,7 +59,6 @@ func (t *TrelloNotifier) Notify(job domain.Job, analysis domain.ResumeAnalysis, 
 
 	aiDetails := ""
 	if aiAnalysis != nil {
-		cardName = fmt.Sprintf("[AI: %d] %s", aiAnalysis.Score, cardName)
 		aiDetails = fmt.Sprintf("\n\n---\n\n**ANÁLISE IA (%s - Score: %d)**\n\n**Recomendação:** %s\n**Resumo:** %s\n**Pontos Fortes:**\n- %s\n**Gaps:**\n- %s",
 			aiAnalysis.Source,
 			aiAnalysis.Score,
@@ -51,10 +69,38 @@ func (t *TrelloNotifier) Notify(job domain.Job, analysis domain.ResumeAnalysis, 
 		)
 	}
 
+	metadataDetails := ""
+	if job.Company != "" || job.Seniority != "" || job.WorkMode != "" || job.EmploymentType != "" || job.SalaryMin > 0 || len(job.Skills) > 0 {
+		metadataDetails = "\n\n---\n\n**INFORMAÇÕES NORMALIZADAS:**\n"
+		if job.Company != "" {
+			metadataDetails += fmt.Sprintf("- **Empresa:** %s\n", job.Company)
+		}
+		if job.Seniority != "" {
+			metadataDetails += fmt.Sprintf("- **Sênioridade:** %s\n", job.Seniority)
+		}
+		if job.WorkMode != "" {
+			metadataDetails += fmt.Sprintf("- **Modalidade:** %s\n", job.WorkMode)
+		}
+		if job.EmploymentType != "" {
+			metadataDetails += fmt.Sprintf("- **Contratação:** %s\n", job.EmploymentType)
+		}
+		if job.SalaryMin > 0 {
+			if job.SalaryMax > job.SalaryMin {
+				metadataDetails += fmt.Sprintf("- **Salário:** %s %.0f - %.0f\n", job.SalaryCurrency, job.SalaryMin, job.SalaryMax)
+			} else {
+				metadataDetails += fmt.Sprintf("- **Salário:** %s %.0f\n", job.SalaryCurrency, job.SalaryMin)
+			}
+		}
+		if len(job.Skills) > 0 {
+			metadataDetails += fmt.Sprintf("- **Skills identificadas:** %s\n", strings.Join(job.Skills, ", "))
+		}
+	}
+
 	cardDesc := fmt.Sprintf(
-		"**ORIGEM:** %s\n\n**LINK DA VAGA:**\n%s\n\n---\n\n**ANÁLISE DE KEYWORDS:**\n%s%s\n\n---\n\n**DESCRIÇÃO DA VAGA:**\n%s",
+		"**ORIGEM:** %s\n\n**LINK DA VAGA:**\n%s%s\n\n---\n\n**ANÁLISE DE KEYWORDS:**\n%s%s\n\n---\n\n**DESCRIÇÃO DA VAGA:**\n%s",
 		job.SourceFeed,
 		job.Link,
+		metadataDetails,
 		analysisDetails,
 		aiDetails,
 		cleanDescription,

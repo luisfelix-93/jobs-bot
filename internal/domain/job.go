@@ -9,6 +9,17 @@ type Job struct {
 	SourceFeed      string
 	Location        string
 	FullDescription string
+
+	// Normalization fields
+	Company         string
+	Seniority       string
+	WorkMode        string
+	EmploymentType  string
+	Skills          []string
+	SalaryMin       float64
+	SalaryMax       float64
+	SalaryCurrency  string
+	NormalizedTitle string
 }
 
 type JobRepository interface {
@@ -46,6 +57,17 @@ type ProcessedJob struct {
 	NotifiedAt      time.Time
 	CreatedAt       time.Time
 	TTLExpireAt     time.Time
+
+	// Normalization fields
+	Company         string
+	Seniority       string
+	WorkMode        string
+	EmploymentType  string
+	Skills          []string
+	SalaryMin       float64
+	SalaryMax       float64
+	SalaryCurrency  string
+	NormalizedTitle string
 }
 
 type JobStore interface {

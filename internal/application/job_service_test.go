@@ -62,7 +62,7 @@ func (m *mockAIAnalyzer) Analyze(resume, jobDesc string) (*domain.AIAnalysis, er
 func buildService(repos []domain.JobRepository, notifier domain.NotificationService, store domain.JobStore, ai domain.AIAnalyzer, limit int) *JobService {
 	filter := domain.NewJobFilter([]string{"go", "docker"}, nil)
 	analyzer := domain.NewResumeAnalyzer()
-	return NewJobService(repos, notifier, filter, analyzer, ai, store, "resume content with go", []string{"go"}, "test-profile", limit)
+	return NewJobService(repos, notifier, filter, analyzer, ai, store, nil, "resume content with go", []string{"go"}, "test-profile", limit)
 }
 
 func makeJobs(count int) []domain.Job {
