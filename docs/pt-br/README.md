@@ -6,13 +6,14 @@ Um sistema inteligente de automação de busca de empregos que monitora múltipl
 
 - **Suporte a Múltiplos Perfis**: Configure múltiplos perfis de busca (ex: "SRE", "Backend .NET") via `profiles.yaml`.
 - **Desduplicação Inteligente**: Usa MongoDB Atlas para rastrear vagas processadas e evitar duplicatas (retenção de 90 dias).
+- **Pipeline de Normalização**: Estrutura dados brutos de múltiplas fontes em um modelo padronizado com senioridade, modalidade de trabalho, tipo de contratação, skills técnicas, faixa salarial e localização normalizada.
 - **Análise por IA (DeepSeek)**: Analisa descrições de vagas contra seu currículo, fornecendo:
   - Pontuação de Compatibilidade (0-100)
   - Pontos Fortes e Lacunas
   - Recomendação (Candidatar/Revisar/Pular)
   - *Fallback para correspondência de palavras-chave se a IA estiver indisponível.*
-- **Resumo Diário por Email**: Envia um email HTML consolidado com estatísticas e principais recomendações para todos os perfis.
-- **Integração com Trello**: Cria cards ricos com resumos de IA e tags.
+- **Resumo Diário por Email**: Envia um email HTML consolidado com estatísticas, badges de senioridade/modalidade/salário e principais recomendações para todos os perfis.
+- **Integração com Trello**: Cria cards ricos com tags de senioridade, modalidade, empresa, score da IA e seção de dados normalizados.
 - **Múltiplas Fontes**:
   - Himalayas *(gratuito, sem necessidade de API Key)*
   - JSearch (RapidAPI)
@@ -29,7 +30,7 @@ O projeto é dividido em três camadas principais:
 - **`cmd`**: O ponto de entrada da aplicação, onde a inicialização e a injeção de dependência são feitas.
 - **`internal`**: A camada principal da aplicação, dividida em:
   - **`application`**: A camada de serviço, que orquestra a lógica de negócios (`JobService`).
-  - **`domain`**: A camada de domínio, que contém as entidades (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`) e a lógica de negócios (`JobFilter`, `ResumeAnalyzer`).
+  - **`domain`**: A camada de domínio, que contém as entidades (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`), a lógica de negócios (`JobFilter`, `ResumeAnalyzer`) e o **pipeline de normalização** (`normalization/`).
   - **`infrastructure`**: A camada de infraestrutura, que contém implementações para serviços externos:
     - **Fontes de Vagas**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`
     - **IA**: `deepseek`
@@ -41,8 +42,8 @@ O projeto é dividido em três camadas principais:
 
 | Entidade | Descrição |
 |----------|-----------|
-| `Job` | Dados brutos da vaga de qualquer fonte (título, empresa, descrição, URL, etc.) |
-| `ProcessedJob` | Vaga armazenada no MongoDB com resultados da análise e TTL |
+| `Job` | Dados brutos da vaga de qualquer fonte (título, empresa, descrição, URL, etc.), agora com campos normalizados (senioridade, modalidade, skills, salário, etc.) |
+| `ProcessedJob` | Vaga armazenada no MongoDB com resultados da análise, TTL e dados normalizados |
 | `AIAnalysis` | Avaliação gerada pelo DeepSeek (pontuação, pontos fortes, lacunas, recomendação) |
 | `ResumeAnalysis` | Resultados da correspondência por palavras-chave |
 | `ProfileStats` | Estatísticas de processamento por perfil |
@@ -60,25 +61,45 @@ O projeto é dividido em três camadas principais:
 │  - Inicializar DeepSeek (opcional)  - Construir repositórios │
 └──────────────────────────────┬──────────────────────────────┘
                                │
-     ┌──────────────────────────┼──────────────────────────┐
-     │                          │                          │
-     ▼                          ▼                          ▼
-┌─────────────┐          ┌─────────────┐           ┌─────────────┐
-│ Fontes de   │          │   DeepSeek  │           │   Email     │
-│ Vagas (6)   │          │    IA       │           │  Resumo     │
-│ concurrentes│          └─────────────┘           └─────────────┘
-└──────┬──────┘                                                  │
-       │                                                  ▼
-       ▼                                          ┌─────────────┐
-┌──────────────────────────────────────┐          │   Trello    │
-│           JobService                 │          │   Serviço   │
-│                                      │          └─────────────┘
-│  - Buscar vagas (paralelo)           │
-│  - Filtrar & ranquear por palavras   │
-│  - Desduplicar (MongoDB)             │
-│  - Análise IA / fallback palavras    │
-│  - Armazenar com TTL de 90 dias     │
-└──────────────────────────────────────┘
+                               ▼
+┌──────────────────────────────────────────────────────────────┐
+│                      JobService                               │
+│                                                               │
+│  1. Buscar vagas (paralelo)                                   │
+│  2. NORMALIZAR (pipeline com 7 normalizers)                   │
+│     ├── Extrair senioridade do título                         │
+│     ├── Detectar modalidade (Remote/Hybrid/On-site)           │
+│     ├── Detectar tipo de contratação                          │
+│     ├── Extrair skills da descrição                           │
+│     ├── Parsear faixa salarial                                │
+│     ├── Padronizar localização                                │
+│     └── Limpar título                                         │
+│  3. Filtrar & ranquear por palavras                           │
+│  4. Desduplicar (MongoDB)                                     │
+│  5. Análise IA / fallback palavras                            │
+│  6. Armazenar com TTL de 90 dias                              │
+└──────────────────────────────────────┬───────────────────────┘
+                                       │
+          ┌────────────────────────────┼────────────────────────┐
+          │                            │                        │
+          ▼                            ▼                        ▼
+   ┌─────────────┐             ┌─────────────┐          ┌─────────────┐
+   │ Fontes de   │             │   DeepSeek  │          │   Email     │
+   │ Vagas (7)   │             │    IA       │          │  Resumo     │
+   │ concurrentes│             └─────────────┘          │  c/ badges  │
+   └──────┬──────┘                                      └─────────────┘
+          │                                                    │
+          ▼                                                    ▼
+   ┌──────────────────────────────────────┐          ┌─────────────┐
+   │           JobService                 │          │   Trello    │
+   │                                      │          │  c/ tags    │
+   │  - Buscar vagas (paralelo)           │          │  e dados    │
+   │  - Normalizar (Pipeline)             │          └─────────────┘
+   │  - Filtrar & ranquear por palavras   │
+   │  - Desduplicar (MongoDB)             │
+   │  - Análise IA / fallback palavras    │
+   │  - Armazenar com TTL de 90 dias     │
+   └──────────────────────────────────────┘
 ```
 
 ## Configuração
@@ -94,14 +115,14 @@ O projeto é dividido em três camadas principais:
 | `JSEARCH_API_KEY` | Chave do RapidAPI para JSearch | Opcional |
 | `FINDWORK_API_KEY` | Chave da API do findwork.dev | Opcional |
 | `THEIRSTACK_API_KEY` | Chave da API do TheirStack | Opcional |
-
-> **Nota:** A fonte do Himalayas não requer chave de API. Basta configurar `himalayas_query` no `profiles.yaml`.
 | `SMTP_HOST` | Host do servidor SMTP | Para email |
 | `SMTP_PORT` | Porta do servidor SMTP | Para email |
 | `SMTP_USER` | Usuário SMTP | Para email |
 | `SMTP_PASSWORD` | Senha SMTP ou senha de app | Para email |
 | `EMAIL_TO` | Endereço de email do destinatário | Para email |
 | `JOB_LIMIT` | Máx de vagas por perfil (padrão: 10) | Não |
+
+> **Nota:** A fonte do Himalayas não requer chave de API. Basta configurar `himalayas_query` no `profiles.yaml`.
 
 ### 2. Perfis (`profiles.yaml`)
 
@@ -172,9 +193,23 @@ Adicione os seguintes **Secrets** nas configurações do seu Repositório GitHub
 - `MONGO_URI`
 - `TRELLO_API_KEY`, `TRELLO_API_TOKEN`
 - `DEEPSEEK_API_KEY`, `JSEARCH_API_KEY`, `FINDWORK_API_KEY`, `THEIRSTACK_API_KEY`
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
 
 > A fonte do Himalayas não requer secret — configure apenas o `himalayas_query` no `profiles.yaml`.
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO`
+
+## Pipeline de Normalização
+
+Entre a coleta e a filtragem, um pipeline com 7 normalizers transforma dados brutos em um modelo padronizado:
+
+| Normalizer | O que faz | Exemplo |
+|-----------|-----------|---------|
+| **Senioridade** | Extrai senioridade do título | `"Senior Go Engineer"` → `Senior` |
+| **Modalidade** | Detecta Remote/Hybrid/On-site | `"Remote"` na localização → `Remote` |
+| **Contratação** | Normaliza tipo de contratação | `"CLT"` → `FullTime` |
+| **Título** | Remove prefixos/sufixos do título | `"Google - Dev (Remote)"` → `"Dev"` |
+| **Skills** | Extrai skills técnicas da descrição | `"Go, Kubernetes, AWS"` |
+| **Salário** | Parseia faixa salarial | `"$120k-$150k"` → `USD 120000-150000` |
+| **Localização** | Padroniza nomes de países | `"USA"` → `"United States"` |
 
 ## Análise de Currículo
 
