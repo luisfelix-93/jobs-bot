@@ -29,7 +29,10 @@ profiles:
       himalayas_query: "golang devops kubernetes sre platform engineer"
       ats:
         collections:
-          - remote-ai
+          - fintech
+          - fintech-payments
+          - fintech-banking
+          - fintech-startups
         companies:
           - stripe
 
