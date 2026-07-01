@@ -7,6 +7,7 @@ An intelligent job search automation system that monitors multiple job boards, a
 - **Multi-Profile Support**: Configure multiple search profiles (e.g., "SRE", "Backend .NET") via `profiles.yaml`.
 - **Intelligent Deduplication**: Uses MongoDB Atlas to track processed jobs and prevent duplicates (90-day retention).
 - **Normalization Pipeline**: Structures raw data from multiple sources into a standardized model with seniority, work mode, employment type, technical skills, salary range, and normalized location.
+- **ATS Provider Support**: Fetches jobs directly from ATS systems like Greenhouse, with a YAML-based company catalog and themed collections (fintech, etc.).
 - **AI Analysis (DeepSeek)**: Analyzes job descriptions against your resume, providing:
   - Match Score (0-100)
   - Strengths & Gaps interpretation
@@ -22,6 +23,7 @@ An intelligent job search automation system that monitors multiple job boards, a
   - WeWorkRemotely
   - LinkedIn (RSS)
   - TheirStack
+  - **Greenhouse (ATS)** — Stripe, Mercury, Ramp, and more via YAML catalog
 
 ## Architecture
 
@@ -30,9 +32,9 @@ The project is divided into three main layers:
 - **`cmd`**: The application's entry point, where initialization and dependency injection are done.
 - **`internal`**: The main application layer, divided into:
   - **`application`**: The service layer, which orchestrates the business logic (`JobService`).
-  - **`domain`**: The domain layer, which contains the entities (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`), business logic (`JobFilter`, `ResumeAnalyzer`), and the **normalization pipeline** (`normalization/`).
+  - **`domain`**: The domain layer, which contains the entities (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`), business logic (`JobFilter`, `ResumeAnalyzer`), and the normalization pipeline (`normalization/`).
   - **`infrastructure`**: The infrastructure layer, which contains implementations for external services:
-    - **Job Sources**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`
+    - **Job Sources**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`, `providers/ats` (Greenhouse, Lever, Ashby)
     - **AI**: `deepseek`
     - **Notifications**: `trello`, `email`
     - **Persistence**: `mongodb`
@@ -66,14 +68,9 @@ The project is divided into three main layers:
 │                      JobService                               │
 │                                                               │
 │  1. Fetch jobs (parallel)                                     │
+│     ├── Traditional APIs (JSearch, Himalayas, etc.)           │
+│     └── ATS Providers (Greenhouse + YAML catalog)             │
 │  2. NORMALIZE (pipeline with 7 normalizers)                   │
-│     ├── Extract seniority from title                          │
-│     ├── Detect work mode (Remote/Hybrid/On-site)              │
-│     ├── Detect employment type                                │
-│     ├── Extract skills from description                       │
-│     ├── Parse salary range                                    │
-│     ├── Normalize location                                    │
-│     └── Clean title                                           │
 │  3. Filter & rank by keywords                                 │
 │  4. Deduplicate (MongoDB)                                     │
 │  5. AI analysis / keyword fallback                            │
@@ -85,7 +82,7 @@ The project is divided into three main layers:
           ▼                            ▼                        ▼
    ┌─────────────┐             ┌─────────────┐          ┌─────────────┐
    │ Job Sources │             │   DeepSeek  │          │   Email     │
-   │ (7 concurrent)            │    AI       │          │  Summary    │
+   │ (8 concurrent)            │    AI       │          │  Summary    │
    └──────┬──────┘             └─────────────┘          │  w/ badges  │
           │                                             └─────────────┘
           ▼                                                    │
@@ -114,6 +111,9 @@ The project is divided into three main layers:
 | `JSEARCH_API_KEY` | RapidAPI key for JSearch | Optional |
 | `FINDWORK_API_KEY` | findwork.dev API key | Optional |
 | `THEIRSTACK_API_KEY` | TheirStack API key | Optional |
+| `GREENHOUSE_API_KEY` | Bearer token for Greenhouse API (optional) | Optional |
+| `LEVER_API_KEY` | Lever API key (future support) | Optional |
+| `ASHBY_API_KEY` | Ashby API key (future support) | Optional |
 | `SMTP_HOST` | SMTP server host | For email |
 | `SMTP_PORT` | SMTP server port | For email |
 | `SMTP_USER` | SMTP username | For email |
@@ -121,7 +121,7 @@ The project is divided into three main layers:
 | `EMAIL_TO` | Recipient email address | For email |
 | `JOB_LIMIT` | Max jobs per profile (default: 10) | No |
 
-> **Note:** The Himalayas source requires no API key and is enabled simply by setting `himalayas_query` in `profiles.yaml`.
+> **Note:** The Himalayas source requires no API key. The Greenhouse API is public — the key is optional for advanced authentication.
 
 ### 2. Profiles (`profiles.yaml`)
 
@@ -145,6 +145,11 @@ profiles:
       findwork_search: "devops"
       theirstack_url: "https://api.theirstack.com/v1/jobs/search"
       himalayas_query: "golang devops kubernetes sre platform engineer"
+      ats:
+        collections:
+          - fintech
+        companies:
+          - stripe
 
   - name: "DotNet-Backend"
     resume_path: "curriculos/RESUME_DOTNET.md"
@@ -209,6 +214,37 @@ Between fetching and filtering, a pipeline with 7 normalizers transforms raw dat
 | **Skills** | Extracts technical skills from description | `"Go, Kubernetes, AWS"` |
 | **Salary** | Parses salary range from text | `"$120k-$150k"` → `USD 120000-150000` |
 | **Location** | Normalizes country names | `"USA"` → `"United States"` |
+
+## ATS Provider Support
+
+The bot fetches jobs directly from ATS systems like Greenhouse, using a YAML-based company catalog.
+
+### How to Configure
+
+```yaml
+sources:
+  ats:
+    collections:
+      - fintech          # All companies in the collection
+    companies:
+      - stripe           # Specific company
+```
+
+### Available Companies (Greenhouse)
+
+Stripe, Plaid, Brex, Mercury, Ramp, Alloy, Modern Treasury, Unit, Increase, Check, Pinwheel, Coast, Mesh, Lithic, Adyen — and more can be added by editing `catalog/greenhouse.yaml`.
+
+### Architecture
+
+```
+catalog/
+├── collections.yaml    # Themed collections (fintech, fintech-payments, etc.)
+├── greenhouse.yaml     # 15 companies + board tokens
+├── lever.yaml          # Placeholder for future support
+└── ashby.yaml          # Placeholder for future support
+```
+
+See `docs/ATS-SUPPORT-GUIDE.md` for the complete guide on catalog management and adding new providers.
 
 ## Resume Analysis
 
