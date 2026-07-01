@@ -27,6 +27,12 @@ profiles:
       findwork_location: "remote"
       theirstack_url: "https://api.theirstack.com/v1/jobs/search"
       himalayas_query: "golang devops kubernetes sre platform engineer"
+      ats:
+        collections:
+          - remote-ai
+        companies:
+          - stripe
+
 
   - name: "DotNet-Backend"
     resume_path: "curriculos/Luis_Felipe_Felix_Filho_Resume.md"
