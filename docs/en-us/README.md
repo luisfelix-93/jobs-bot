@@ -148,6 +148,9 @@ profiles:
       ats:
         collections:
           - fintech
+          - fintech-payments
+          - fintech-banking
+          - fintech-startups
         companies:
           - stripe
 

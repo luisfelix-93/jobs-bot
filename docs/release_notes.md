@@ -1,73 +1,34 @@
-# Release Notes — v2.3.0
+# Release Notes — v2.3.1
 
-**Data:** 2026-06-30
-**Branch:** `feature/11-support-ats-provider`
+**Data:** 2026-07-01
+**Branch:** `fix/error-catalog`
 
 ---
 
-## ✨ Nova Feature: Suporte a Provedores ATS (Greenhouse + Catálogo)
+## Correção: Catálogo de Coleções ATS
 
 ### Problema
-O bot só buscava vagas de quadros de empregos genéricos (JSearch, Himalayas, etc.), perdendo oportunidades diretas de empresas que utilizam sistemas ATS (Applicant Tracking Systems). Muitas empresas de alto valor (Stripe, Mercury, Ramp, etc.) publicam vagas exclusivamente em suas boards ATS, e essas vagas não eram capturadas.
+O perfil `SRE-Platform` estava configurado com a coleção `remote-ai`, que não existe no catálogo de empresas (`catalog/collections.yaml`). Como resultado, nenhuma vaga de sistemas ATS (Greenhouse) era buscada para este perfil.
 
-### Solução
-Integração nativa com APIs públicas de ATS via sistema de catálogo YAML. Começamos com suporte ao **Greenhouse** (o ATS mais popular entre fintechs), com arquitetura extensível para Lever, Ashby e outros.
+### Correção
+As coleções ATS do perfil `SRE-Platform` foram corrigidas para utilizar coleções reais do catálogo fintech:
 
-### Como Funciona
+| Coleção | Empresas Incluídas |
+|---------|-------------------|
+| `fintech` | Todas as 15 empresas (Stripe, Plaid, Brex, Mercury, Ramp, etc.) |
+| `fintech-payments` | Stripe, Adyen, Modern Treasury, Increase, Lithic |
+| `fintech-banking` | Mercury, Unit, Plaid |
+| `fintech-startups` | Mercury, Ramp, Alloy, Modern Treasury, Unit, Increase, Check, Pinwheel, Coast, Lithic |
+| Empresa específica | Stripe |
 
-```
-profiles.yaml → ATS Collections/Companies → catálogo YAML → Resolução → Fetch concorrente → domain.Job
-```
+Agora o perfil `SRE-Platform` busca vagas de todas as empresas fintech disponíveis no catálogo Greenhouse.
 
-1. **Catálogo YAML**: Arquivos em `catalog/` mapeiam empresas por provedor ATS com seus board tokens
-2. **Coleções**: Agrupamentos temáticos de empresas (ex: `fintech`, `fintech-payments`)
-3. **Fetch Concorrente**: Cada empresa é buscada em paralelo via goroutines
-4. **Resiliência**: Falha em uma empresa não afeta as demais (erro é logado e ignorado)
+### Arquivos Alterados
+- `profiles.yaml` — correção das coleções ATS
 
-### Empresas Catalogadas (Greenhouse)
-
-| Empresa | Token | País | Categoria |
-|---------|-------|------|-----------|
-| Stripe | `stripe` | US | Fintech, Payments |
-| Plaid | `plaid` | US | Fintech, Open Banking |
-| Brex | `brex` | US | Fintech, Corporate Cards |
-| Mercury | `mercury` | US | Fintech, Banking |
-| Ramp | `ramp` | US | Fintech, Expense Management |
-| Alloy | `alloy` | US | Fintech, Identity |
-| Modern Treasury | `moderntreasury` | US | Fintech, Payments |
-| Unit | `unit` | US | Fintech, Banking-as-a-Service |
-| Increase | `increase` | US | Fintech, Payments API |
-| Check | `check` | US | Fintech, Payroll |
-| Pinwheel | `pinwheel` | US | Fintech, Payroll Connectivity |
-| Coast | `coast` | US | Fintech, Fleet Payments |
-| Mesh | `mesh` | US | Fintech, Crypto |
-| Lithic | `lithic` | US | Fintech, Card Issuing |
-| Adyen | `adyen` | NL | Fintech, Payments |
-
-### Como Ativar
-
-```yaml
-# profiles.yaml — adicione no sources do perfil desejado
-sources:
-  ats:
-    collections:
-      - fintech        # Busca vagas de todas as empresas fintech
-    companies:
-      - stripe         # Empresa específica (não precisa estar em coleção)
-```
-
-### Arquitetura Extensível
-
-Para adicionar um novo provedor ATS (ex: Lever), basta:
-1. Implementar a interface `AtsClient` em `internal/infrastructure/providers/ats/lever/`
-2. Registrar o cliente no `repository.go`
-3. Criar o arquivo de catálogo `catalog/lever.yaml`
-
-Veja `docs/ATS-SUPPORT-GUIDE.md` para o passo a passo completo.
-
-### Como testar
+### Como verificar
+Execute o bot e observe os logs para confirmação de que as coleções fintech estão sendo resolvidas corretamente:
 
 ```bash
-go test ./internal/infrastructure/providers/... -v
-go build ./...
+go run cmd/bot/main.go
 ```
