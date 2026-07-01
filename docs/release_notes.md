@@ -1,86 +1,73 @@
-# Release Notes — v2.2.0
+# Release Notes — v2.3.0
 
 **Data:** 2026-06-30
-**Branch:** `feature/10-normalization-jobs`
+**Branch:** `feature/11-support-ats-provider`
 
 ---
 
-## ✨ Nova Feature: Pipeline de Normalização de Vagas
+## ✨ Nova Feature: Suporte a Provedores ATS (Greenhouse + Catálogo)
 
 ### Problema
-As vagas coletadas de diferentes fontes (Himalayas, JSearch, Findwork, TheirStack, etc.) chegavam em formatos inconsistentes — umas com empresa, outras sem; umas com salário, outras com senioridade no título; cada uma com sua própria nomenclatura para o mesmo conceito. Isso dificultava a comparação, filtragem e exibição unificada dos dados.
+O bot só buscava vagas de quadros de empregos genéricos (JSearch, Himalayas, etc.), perdendo oportunidades diretas de empresas que utilizam sistemas ATS (Applicant Tracking Systems). Muitas empresas de alto valor (Stripe, Mercury, Ramp, etc.) publicam vagas exclusivamente em suas boards ATS, e essas vagas não eram capturadas.
 
 ### Solução
-Pipeline de normalização com 7 normalizers que transformam dados brutos em um modelo padronizado e enriquecido:
+Integração nativa com APIs públicas de ATS via sistema de catálogo YAML. Começamos com suporte ao **Greenhouse** (o ATS mais popular entre fintechs), com arquitetura extensível para Lever, Ashby e outros.
 
-### Novos Campos Normalizados
-
-Cada vaga agora contém até 9 campos estruturados:
-
-| Campo | Exemplo | Fonte |
-|-------|---------|-------|
-| Empresa | `Google`, `AWS` | Provider ou extraído |
-| Senioridade | `Senior`, `Mid`, `Junior`, `Lead` | Título da vaga |
-| Modalidade | `Remote`, `Hybrid`, `On-site` | Localização + Título + Descrição |
-| Contratação | `FullTime`, `Contract`, `PartTime` | Título + Descrição |
-| Skills | `Go, Kubernetes, AWS` | Descrição da vaga |
-| Salário | `USD 120k-150k` | Título + Descrição |
-| Localização | `United States`, `Brazil`, `Remote` | Normalizada |
-| Título Limpo | `Software Engineer` (sem `(Remote)`) | Título original |
-
-### O que muda na prática
-
-**Antes:**
-- Vagas apareciam como `"Google - Software Engineer (Remote) [Hybrid]"`
-- Senioridade e salário enterrados na descrição
-- Skills eram ignoradas na notificação
-- Trello mostrava apenas título + fonte
-- Email mostrava apenas título + score
-
-**Depois:**
-- Título é limpo para `"Software Engineer"` (com senoridade, modalidade e empresa em campos separados)
-- Badges coloridos no email: Senioridade (azul), Modalidade (verde), Salário (amarelo)
-- Top-3 skills exibidas no email
-- Card do Trello com tags: `[AI: 85] [JSearch] [Google] [Senior] [Remote]`
-- Seção "Informações Normalizadas" com todos os campos no body da card
-- Salários parseados de formatos variados: `$120k`, `USD 80,000`, `€100k`, `BRL 10.000`
-- Dados persistidos no MongoDB para consulta futura
-
-### Fluxo Atualizado
+### Como Funciona
 
 ```
-1. Buscar vagas de todas as APIs
-2. Normalizar (preencher lacunas via análise de texto)
-   ├── Extrair senioridade do título
-   ├── Detectar modalidade (Remote/Hybrid/On-site)
-   ├── Detectar tipo de contratação
-   ├── Extrair skills da descrição
-   ├── Parsear faixa salarial
-   ├── Padronizar localização
-   └── Limpar título
-3. Filtrar e ordenar por relevância
-4. Desduplicar (MongoDB)
-5. Analisar com IA / fallback
-6. Notificar (Trello + Email com dados enriquecidos)
+profiles.yaml → ATS Collections/Companies → catálogo YAML → Resolução → Fetch concorrente → domain.Job
 ```
 
-### Arquivos criados
+1. **Catálogo YAML**: Arquivos em `catalog/` mapeiam empresas por provedor ATS com seus board tokens
+2. **Coleções**: Agrupamentos temáticos de empresas (ex: `fintech`, `fintech-payments`)
+3. **Fetch Concorrente**: Cada empresa é buscada em paralelo via goroutines
+4. **Resiliência**: Falha em uma empresa não afeta as demais (erro é logado e ignorado)
 
-| Arquivo | Descrição |
-|---------|-----------|
-| `internal/domain/normalization/normalizer.go` | Interface + Pipeline orquestrador |
-| `internal/domain/normalization/seniority.go` | Normalizer de senioridade |
-| `internal/domain/normalization/work_mode.go` | Normalizer de modalidade |
-| `internal/domain/normalization/employment_type.go` | Normalizer de tipo de contratação |
-| `internal/domain/normalization/title.go` | Normalizer de título |
-| `internal/domain/normalization/skills.go` | Extrator de skills técnicas |
-| `internal/domain/normalization/salary.go` | Parser de faixa salarial |
-| `internal/domain/normalization/location.go` | Normalizer de localização |
-| `internal/domain/normalization/normalizer_test.go` | Testes unitários (8 testes, todos passando) |
+### Empresas Catalogadas (Greenhouse)
+
+| Empresa | Token | País | Categoria |
+|---------|-------|------|-----------|
+| Stripe | `stripe` | US | Fintech, Payments |
+| Plaid | `plaid` | US | Fintech, Open Banking |
+| Brex | `brex` | US | Fintech, Corporate Cards |
+| Mercury | `mercury` | US | Fintech, Banking |
+| Ramp | `ramp` | US | Fintech, Expense Management |
+| Alloy | `alloy` | US | Fintech, Identity |
+| Modern Treasury | `moderntreasury` | US | Fintech, Payments |
+| Unit | `unit` | US | Fintech, Banking-as-a-Service |
+| Increase | `increase` | US | Fintech, Payments API |
+| Check | `check` | US | Fintech, Payroll |
+| Pinwheel | `pinwheel` | US | Fintech, Payroll Connectivity |
+| Coast | `coast` | US | Fintech, Fleet Payments |
+| Mesh | `mesh` | US | Fintech, Crypto |
+| Lithic | `lithic` | US | Fintech, Card Issuing |
+| Adyen | `adyen` | NL | Fintech, Payments |
+
+### Como Ativar
+
+```yaml
+# profiles.yaml — adicione no sources do perfil desejado
+sources:
+  ats:
+    collections:
+      - fintech        # Busca vagas de todas as empresas fintech
+    companies:
+      - stripe         # Empresa específica (não precisa estar em coleção)
+```
+
+### Arquitetura Extensível
+
+Para adicionar um novo provedor ATS (ex: Lever), basta:
+1. Implementar a interface `AtsClient` em `internal/infrastructure/providers/ats/lever/`
+2. Registrar o cliente no `repository.go`
+3. Criar o arquivo de catálogo `catalog/lever.yaml`
+
+Veja `docs/ATS-SUPPORT-GUIDE.md` para o passo a passo completo.
 
 ### Como testar
 
 ```bash
-go test ./internal/domain/normalization/... -v
+go test ./internal/infrastructure/providers/... -v
 go build ./...
 ```

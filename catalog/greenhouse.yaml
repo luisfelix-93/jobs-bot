@@ -1,0 +1,120 @@
+companies:
+  stripe:
+    name: "Stripe"
+    board_token: "stripe"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Payments", "Developer Tools"]
+    career_page_url: "https://stripe.com/jobs"
+
+  plaid:
+    name: "Plaid"
+    board_token: "plaid"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Open Banking"]
+    career_page_url: "https://plaid.com/careers"
+
+  brex:
+    name: "Brex"
+    board_token: "brex"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Corporate Cards"]
+    career_page_url: "https://www.brex.com/careers"
+
+  mercury:
+    name: "Mercury"
+    board_token: "mercury"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Banking"]
+    career_page_url: "https://mercury.com/jobs"
+
+  ramp:
+    name: "Ramp"
+    board_token: "ramp"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Expense Management"]
+    career_page_url: "https://ramp.com/careers"
+
+  alloy:
+    name: "Alloy"
+    board_token: "alloy"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Identity", "Fraud Prevention"]
+    career_page_url: "https://alloy.com/careers"
+
+  moderntreasury:
+    name: "Modern Treasury"
+    board_token: "moderntreasury"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Payments Infrastructure"]
+    career_page_url: "https://www.moderntreasury.com/careers"
+
+  unit:
+    name: "Unit"
+    board_token: "unit"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Banking as a Service"]
+    career_page_url: "https://www.unit.co/careers"
+
+  increase:
+    name: "Increase"
+    board_token: "increase"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Payments API"]
+    career_page_url: "https://increase.com/careers"
+
+  check:
+    name: "Check"
+    board_token: "check"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Payroll"]
+    career_page_url: "https://checkhq.com/careers"
+
+  pinwheel:
+    name: "Pinwheel"
+    board_token: "pinwheel"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Payroll Connectivity"]
+    career_page_url: "https://www.pinwheelapi.com/careers"
+
+  coast:
+    name: "Coast"
+    board_token: "coast"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Fleet Payments"]
+    career_page_url: "https://coastpay.com/careers"
+
+  mesh:
+    name: "Mesh"
+    board_token: "mesh"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Crypto", "Payments"]
+    career_page_url: "https://meshconnect.com/careers"
+
+  lithic:
+    name: "Lithic"
+    board_token: "lithic"
+    country: "US"
+    remote_friendly: true
+    categories: ["Fintech", "Card Issuing"]
+    career_page_url: "https://www.lithic.com/careers"
+
+  adyen:
+    name: "Adyen"
+    board_token: "adyen"
+    country: "NL"
+    remote_friendly: true
+    categories: ["Fintech", "Payments"]
+    career_page_url: "https://careers.adyen.com"

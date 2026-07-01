@@ -19,6 +19,9 @@ type Config struct {
 	JSearchAPIKey    string
 	FindworkAPIKey   string
 	TheirStackAPIKey string
+	GreenhouseAPIKey string
+	LeverAPIKey      string
+	AshbyAPIKey      string
 	// Email Config
 	SMTPHost     string
 	SMTPPort     int
@@ -37,14 +40,20 @@ type ProfileConfig struct {
 }
 
 type Sources struct {
-	JobicyURL        string `yaml:"jobicy_url"`
-	WwrURL           string `yaml:"wwr_url"`
-	LinkedInURL      string `yaml:"linkedin_url"`
-	JSearchQuery     string `yaml:"jsearch_query"`
-	FindworkSearch   string `yaml:"findwork_search"`
-	FindworkLocation string `yaml:"findwork_location"`
-	TheirStackURL    string `yaml:"theirstack_url"`
-	HimalayasQuery   string `yaml:"himalayas_query"`
+	JobicyURL        string    `yaml:"jobicy_url"`
+	WwrURL           string    `yaml:"wwr_url"`
+	LinkedInURL      string    `yaml:"linkedin_url"`
+	JSearchQuery     string    `yaml:"jsearch_query"`
+	FindworkSearch   string    `yaml:"findwork_search"`
+	FindworkLocation string    `yaml:"findwork_location"`
+	TheirStackURL    string    `yaml:"theirstack_url"`
+	HimalayasQuery   string    `yaml:"himalayas_query"`
+	Ats              AtsConfig `yaml:"ats"`
+}
+
+type AtsConfig struct {
+	Collections []string `yaml:"collections"`
+	Companies   []string `yaml:"companies"`
 }
 
 type profilesFile struct {
@@ -80,6 +89,9 @@ func LoadConfig() (*Config, error) {
 		JSearchAPIKey:    os.Getenv("JSEARCH_API_KEY"),
 		FindworkAPIKey:   os.Getenv("FINDWORK_API_KEY"),
 		TheirStackAPIKey: os.Getenv("THEIRSTACK_API_KEY"),
+		GreenhouseAPIKey: os.Getenv("GREENHOUSE_API_KEY"),
+		LeverAPIKey:      os.Getenv("LEVER_API_KEY"),
+		AshbyAPIKey:      os.Getenv("ASHBY_API_KEY"),
 
 		SMTPHost:     os.Getenv("SMTP_HOST"),
 		SMTPPort:     smtpPort,

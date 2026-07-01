@@ -7,6 +7,7 @@ Um sistema inteligente de automação de busca de empregos que monitora múltipl
 - **Suporte a Múltiplos Perfis**: Configure múltiplos perfis de busca (ex: "SRE", "Backend .NET") via `profiles.yaml`.
 - **Desduplicação Inteligente**: Usa MongoDB Atlas para rastrear vagas processadas e evitar duplicatas (retenção de 90 dias).
 - **Pipeline de Normalização**: Estrutura dados brutos de múltiplas fontes em um modelo padronizado com senioridade, modalidade de trabalho, tipo de contratação, skills técnicas, faixa salarial e localização normalizada.
+- **Suporte a Provedores ATS**: Busca vagas diretamente de sistemas ATS como Greenhouse, com catálogo YAML de empresas e coleções temáticas (fintech, etc.).
 - **Análise por IA (DeepSeek)**: Analisa descrições de vagas contra seu currículo, fornecendo:
   - Pontuação de Compatibilidade (0-100)
   - Pontos Fortes e Lacunas
@@ -22,6 +23,7 @@ Um sistema inteligente de automação de busca de empregos que monitora múltipl
   - WeWorkRemotely
   - LinkedIn (RSS)
   - TheirStack
+  - **Greenhouse (ATS)** — Stripe, Mercury, Ramp, e mais via catálogo YAML
 
 ## Arquitetura
 
@@ -30,9 +32,9 @@ O projeto é dividido em três camadas principais:
 - **`cmd`**: O ponto de entrada da aplicação, onde a inicialização e a injeção de dependência são feitas.
 - **`internal`**: A camada principal da aplicação, dividida em:
   - **`application`**: A camada de serviço, que orquestra a lógica de negócios (`JobService`).
-  - **`domain`**: A camada de domínio, que contém as entidades (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`), a lógica de negócios (`JobFilter`, `ResumeAnalyzer`) e o **pipeline de normalização** (`normalization/`).
+  - **`domain`**: A camada de domínio, que contém as entidades (`Job`, `ProcessedJob`, `AIAnalysis`, `ResumeAnalysis`, `ProfileStats`), a lógica de negócios (`JobFilter`, `ResumeAnalyzer`) e o pipeline de normalização (`normalization/`).
   - **`infrastructure`**: A camada de infraestrutura, que contém implementações para serviços externos:
-    - **Fontes de Vagas**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`
+    - **Fontes de Vagas**: `himalayas`, `jobicy`, `weworkremotely`, `linkedin`, `jsearch`, `findwork`, `theirstack`, `providers/ats` (Greenhouse, Lever, Ashby)
     - **IA**: `deepseek`
     - **Notificações**: `trello`, `email`
     - **Persistência**: `mongodb`
@@ -66,14 +68,9 @@ O projeto é dividido em três camadas principais:
 │                      JobService                               │
 │                                                               │
 │  1. Buscar vagas (paralelo)                                   │
+│     ├── APIs tradicionais (JSearch, Himalayas, etc.)          │
+│     └── Provedores ATS (Greenhouse + catálogo YAML)           │
 │  2. NORMALIZAR (pipeline com 7 normalizers)                   │
-│     ├── Extrair senioridade do título                         │
-│     ├── Detectar modalidade (Remote/Hybrid/On-site)           │
-│     ├── Detectar tipo de contratação                          │
-│     ├── Extrair skills da descrição                           │
-│     ├── Parsear faixa salarial                                │
-│     ├── Padronizar localização                                │
-│     └── Limpar título                                         │
 │  3. Filtrar & ranquear por palavras                           │
 │  4. Desduplicar (MongoDB)                                     │
 │  5. Análise IA / fallback palavras                            │
@@ -85,7 +82,7 @@ O projeto é dividido em três camadas principais:
           ▼                            ▼                        ▼
    ┌─────────────┐             ┌─────────────┐          ┌─────────────┐
    │ Fontes de   │             │   DeepSeek  │          │   Email     │
-   │ Vagas (7)   │             │    IA       │          │  Resumo     │
+   │ Vagas (8)   │             │    IA       │          │  Resumo     │
    │ concurrentes│             └─────────────┘          │  c/ badges  │
    └──────┬──────┘                                      └─────────────┘
           │                                                    │
@@ -115,6 +112,9 @@ O projeto é dividido em três camadas principais:
 | `JSEARCH_API_KEY` | Chave do RapidAPI para JSearch | Opcional |
 | `FINDWORK_API_KEY` | Chave da API do findwork.dev | Opcional |
 | `THEIRSTACK_API_KEY` | Chave da API do TheirStack | Opcional |
+| `GREENHOUSE_API_KEY` | Token Bearer para API do Greenhouse (opcional) | Opcional |
+| `LEVER_API_KEY` | Chave da API do Lever (suporte futuro) | Opcional |
+| `ASHBY_API_KEY` | Chave da API do Ashby (suporte futuro) | Opcional |
 | `SMTP_HOST` | Host do servidor SMTP | Para email |
 | `SMTP_PORT` | Porta do servidor SMTP | Para email |
 | `SMTP_USER` | Usuário SMTP | Para email |
@@ -122,7 +122,7 @@ O projeto é dividido em três camadas principais:
 | `EMAIL_TO` | Endereço de email do destinatário | Para email |
 | `JOB_LIMIT` | Máx de vagas por perfil (padrão: 10) | Não |
 
-> **Nota:** A fonte do Himalayas não requer chave de API. Basta configurar `himalayas_query` no `profiles.yaml`.
+> **Nota:** A fonte do Himalayas não requer chave de API. A API Greenhouse é pública — a chave é opcional para autenticação avançada.
 
 ### 2. Perfis (`profiles.yaml`)
 
@@ -146,6 +146,11 @@ profiles:
       findwork_search: "devops"
       theirstack_url: "https://api.theirstack.com/v1/jobs/search"
       himalayas_query: "golang devops kubernetes sre platform engineer"
+      ats:
+        collections:
+          - fintech
+        companies:
+          - stripe
 
   - name: "DotNet-Backend"
     resume_path: "curriculos/RESUME_DOTNET.md"
@@ -210,6 +215,37 @@ Entre a coleta e a filtragem, um pipeline com 7 normalizers transforma dados bru
 | **Skills** | Extrai skills técnicas da descrição | `"Go, Kubernetes, AWS"` |
 | **Salário** | Parseia faixa salarial | `"$120k-$150k"` → `USD 120000-150000` |
 | **Localização** | Padroniza nomes de países | `"USA"` → `"United States"` |
+
+## Suporte a Provedores ATS
+
+O bot busca vagas diretamente de sistemas ATS como o Greenhouse, utilizando um catálogo YAML de empresas.
+
+### Como Configurar
+
+```yaml
+sources:
+  ats:
+    collections:
+      - fintech          # Todas as empresas da coleção
+    companies:
+      - stripe           # Empresa específica
+```
+
+### Empresas Disponíveis (Greenhouse)
+
+Stripe, Plaid, Brex, Mercury, Ramp, Alloy, Modern Treasury, Unit, Increase, Check, Pinwheel, Coast, Mesh, Lithic, Adyen — e mais podem ser adicionadas editando `catalog/greenhouse.yaml`.
+
+### Arquitetura
+
+```
+catalog/
+├── collections.yaml    # Coleções temáticas (fintech, fintech-payments, etc.)
+├── greenhouse.yaml     # 15 empresas + board tokens
+├── lever.yaml          # Placeholder para suporte futuro
+└── ashby.yaml          # Placeholder para suporte futuro
+```
+
+Veja `docs/ATS-SUPPORT-GUIDE.md` para o guia completo de gerenciamento do catálogo e adição de novos provedores.
 
 ## Análise de Currículo
 

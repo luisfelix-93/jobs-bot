@@ -16,6 +16,7 @@ import (
 	"jobs-bot/internal/infrastructure/jsearch"
 	"jobs-bot/internal/infrastructure/linkedin"
 	"jobs-bot/internal/infrastructure/mongodb"
+	"jobs-bot/internal/infrastructure/providers/ats"
 	"jobs-bot/internal/infrastructure/theirstack"
 	"jobs-bot/internal/infrastructure/trello"
 	"jobs-bot/internal/infrastructure/weworkremotely"
@@ -153,6 +154,11 @@ func buildRepos(sources config.Sources, cfg *config.Config, profile config.Profi
 	if sources.HimalayasQuery != "" {
 		log.Println("  + Fonte: Himalayas")
 		repos = append(repos, himalayas.NewJobRepository(profile.Name, sources.HimalayasQuery))
+	}
+
+	if len(sources.Ats.Collections) > 0 || len(sources.Ats.Companies) > 0 {
+		log.Println("  + Fonte: ATS (Greenhouse/Lever/Ashby)")
+		repos = append(repos, ats.NewRepository("catalog", cfg, sources.Ats))
 	}
 
 	return repos

@@ -1,92 +1,105 @@
 ## Resumo do Pull Request
 
-Pipeline de normalização de vagas que estrutura dados brutos de múltiplas fontes em um modelo padronizado. A normalização acontece entre a coleta e a filtragem, enriquecendo cada vaga com senioridade, modalidade de trabalho, tipo de contratação, skills, faixa salarial e localização padronizada — tudo extraído de forma determinística via regras e regex.
+Suporte nativo a provedores de ATS (Applicant Tracking Systems) com integração inicial ao Greenhouse. O bot agora consegue buscar vagas diretamente das boards públicas do Greenhouse usando um sistema de catálogo baseado em YAML, permitindo monitorar empresas específicas (ex: Stripe, Mercury, Ramp) e coleções temáticas (ex: `fintech`, `remote-ai`) via configuração em `profiles.yaml`.
 
 ### Principais Alterações
 
-#### 1. Pipeline de Normalização (`internal/domain/normalization/`)
+#### 1. Arquitetura de Provedores ATS (`internal/infrastructure/providers/ats/`)
 
-Novo pacote com 7 normalizers e um pipeline orquestrador:
+Novo pacote com arquitetura extensível para múltiplos provedores:
 
-- **`normalizer.go`** — Interface `Normalizer` + struct `Pipeline` que executa normalizers em sequência
-- **`seniority.go`** — Extrai senioridade do título: `"Senior"/"Sr"/"III"/"IV" → Senior`, `"Pleno"/"II"/"Mid" → Mid`, `"Junior"/"Jr"/"I" → Junior`, `"Staff" → Staff`, `"Principal" → Principal`, `"Lead"/"Tech Lead" → Lead`
-- **`work_mode.go`** — Detecta modalidade analisando `Location` + `Title` + `Description`: `"remote"/"home office"/"remoto" → Remote`, `"hybrid"/"híbrido" → Hybrid`, `"on-site"/"presencial" → On-site`
-- **`employment_type.go`** — Normaliza tipo de contratação: `"CLT"/"full time"/"permanent" → FullTime`, `"PJ"/"contractor"/"freelance" → Contract`, `"part time" → PartTime`
-- **`title.go`** — Remove prefixos de empresa, sufixos de localização e tags de senioridade do título original, gerando `NormalizedTitle`
-- **`skills.go`** — Extrai skills técnicas conhecidas (~50) do título + descrição via regex com word-boundary, com deduplicação e mapeamento de variantes (ex: `"Golang" → "Go"`)
-- **`salary.go`** — Parseia faixas salariais com regex: `"$120k-$150k"`, `"USD 80,000 to 100,000"`, `"€100k"`, `"BRL 10.000 - BRL 12.000"` — extrai moeda + min + max
-- **`location.go`** — Padroniza localizações: `"USA"/"US" → "United States"`, `"UK" → "United Kingdom"`, `"BR"/"Brasil" → "Brazil"`, `"Anywhere"/"Worldwide"/"Remote" → "Remote"`
+- **`client.go`** — Interface `AtsClient` com método `FetchJobs(boardToken string) ([]domain.Job, error)`, permitindo adicionar novos provedores sem alterar o orquestrador
+- **`repository.go`** — Orquestrador concurrente que implementa `domain.JobRepository`, fazendo fetch paralelo para todas as empresas configuradas com tratamento resiliente de erros (falha em uma empresa não afeta as demais)
+- **`catalog.go`** — Sistema de catálogo que carrega dinamicamente todos os arquivos YAML do diretório `/catalog`, resolve coleções em listas de empresas e trata duplicatas entre coleções+empresas
+- **`greenhouse/greenhouse.go`** — Cliente nativo da API pública Greenhouse (`boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true`), com suporte a autenticação opcional via Bearer token
 
-#### 2. Expansão dos Models (`internal/domain/job.go`)
+#### 2. Sistema de Catálogo (`catalog/`)
 
-9 novos campos adicionados aos structs `Job` e `ProcessedJob`:
+Catálogo estruturado em YAML para fácil gerenciamento de empresas:
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `Company` | `string` | Nome da empresa |
-| `Seniority` | `string` | Junior, Mid, Senior, Staff, Principal, Lead |
-| `WorkMode` | `string` | Remote, Hybrid, On-site |
-| `EmploymentType` | `string` | FullTime, Contract, PartTime |
-| `Skills` | `[]string` | Skills técnicas extraídas |
-| `SalaryMin` | `float64` | Salário mínimo |
-| `SalaryMax` | `float64` | Salário máximo |
-| `SalaryCurrency` | `string` | USD, EUR, BRL, GBP |
-| `NormalizedTitle` | `string` | Título limpo |
+- **`catalog/collections.yaml`** — Coleções temáticas que agrupam empresas por categoria (ex: `fintech`, `fintech-payments`, `fintech-banking`, `fintech-startups`)
+- **`catalog/greenhouse.yaml`** — 15 empresas fintech catalogadas com board tokens, nomes amigáveis, país, suporte a remoto, categorias e URL da página de carreiras:
 
-#### 3. Atualização dos Providers
+| Empresa | Board Token | Categoria |
+|---------|-------------|-----------|
+| Stripe | `stripe` | Fintech, Payments |
+| Plaid | `plaid` | Fintech, Open Banking |
+| Brex | `brex` | Fintech, Corporate Cards |
+| Mercury | `mercury` | Fintech, Banking |
+| Ramp | `ramp` | Fintech, Expense Management |
+| Alloy | `alloy` | Fintech, Identity |
+| Modern Treasury | `moderntreasury` | Fintech, Payments |
+| Unit | `unit` | Fintech, Banking-as-a-Service |
+| Increase | `increase` | Fintech, Payments API |
+| Check | `check` | Fintech, Payroll |
+| Pinwheel | `pinwheel` | Fintech, Payroll Connectivity |
+| Coast | `coast` | Fintech, Fleet Payments |
+| Mesh | `mesh` | Fintech, Crypto |
+| Lithic | `lithic` | Fintech, Card Issuing |
+| Adyen | `adyen` | NL, Payments |
 
-Dados nativos de cada fonte agora são mapeados:
+- **`catalog/lever.yaml`** e **`catalog/ashby.yaml`** — Placeholders para suporte futuro
 
-- **Himalayas** — `CompanyName`, `Seniority`, `EmploymentType`, `MinSalary`, `MaxSalary`, `Currency`
-- **JSearch** — `EmployerName` → `Company`, `JobIsRemote` → `WorkMode`
-- **TheirStack** — `Company` → `Company`, `WorkMode: "Remote"` (todas as vagas)
-- **Findwork** — `CompanyName` → `Company`
+#### 3. Configuração (`config/config.go`)
 
-Providers sem dados nativos (Jobicy, LinkedIn, WeWorkRemotely) continuam funcionando — o normalizer preenche via análise de texto.
+- Nova struct `AtsConfig` com campos `Collections []string` e `Companies []string`
+- Novo campo `Ats AtsConfig` no struct `Sources` (configurável por perfil em `profiles.yaml`)
+- Novas variáveis de ambiente: `GREENHOUSE_API_KEY`, `LEVER_API_KEY`, `ASHBY_API_KEY`
 
-#### 4. Integração no JobService (`internal/application/job_service.go`)
+#### 4. Integração no `cmd/bot/main.go`
 
-- Pipeline executado entre `FetchJobs` e `FilterAndRankJobs`
-- Logs de estatísticas pós-normalização: `"Seniority: 45/100, WorkMode: 80/100, Salary: 12/100"`
-- Campos normalizados são persistidos no MongoDB via `ProcessedJob`
+- `buildRepos` agora aceita `*config.Config` como parâmetro
+- Se o perfil tiver `ats.collections` ou `ats.companies` configurados, instancia `ats.NewRepository`
 
-#### 5. Enriquecimento de Notificações
+#### 5. Guia de Suporte (`docs/ATS-SUPPORT-GUIDE.md`)
 
-- **Email** (`internal/infrastructure/email/notification_service.go`): Badges coloridos de Seniority (azul), WorkMode (verde) e Salary (amarelo) no HTML; top-3 skills exibidas
-- **Trello** (`internal/infrastructure/trello/notification_service.go`): Card title prefixado com tags `[AI Score] [Source] [Company] [Seniority] [WorkMode]`; seção "Informações Normalizadas" no body da card
+Documentação detalhada cobrindo:
+- Arquitetura do sistema ATS (diagrama Mermaid)
+- Gerenciamento do catálogo de empresas
+- Passo a passo para adicionar novas empresas ao catálogo
+- Guia para adicionar suporte a novos provedores ATS (Lever, Ashby, etc.)
+- Extensibilidade via plugin (interface `AtsClient` + YAML + switch-case)
 
-#### 6. Persistência no MongoDB (`internal/infrastructure/mongodb/repository.go`)
+### Exemplo de Uso
 
-- Novos campos com `bson:"...,omitempty"` para compatibilidade com documentos existentes
+```yaml
+# profiles.yaml
+sources:
+  ats:
+    collections:
+      - fintech
+    companies:
+      - stripe
+```
+
+```bash
+# .env
+GREENHOUSE_API_KEY=optional_bearer_token
+```
 
 ### Arquivos Modificados
 
 | Arquivo | Alteração |
 |---------|-----------|
-| `internal/domain/job.go` | +9 campos em `Job` e `ProcessedJob` |
-| `internal/domain/normalization/normalizer.go` | **Novo** — Interface + Pipeline |
-| `internal/domain/normalization/seniority.go` | **Novo** — Normalizer de senioridade |
-| `internal/domain/normalization/work_mode.go` | **Novo** — Normalizer de modalidade |
-| `internal/domain/normalization/employment_type.go` | **Novo** — Normalizer de tipo de contratação |
-| `internal/domain/normalization/title.go` | **Novo** — Normalizer de título |
-| `internal/domain/normalization/skills.go` | **Novo** — Extrator de skills |
-| `internal/domain/normalization/salary.go` | **Novo** — Normalizer de salário |
-| `internal/domain/normalization/location.go` | **Novo** — Normalizer de localização |
-| `internal/domain/normalization/normalizer_test.go` | **Novo** — 8 testes unitários |
-| `internal/infrastructure/himalayas/repository.go` | Mapeamento de dados nativos |
-| `internal/infrastructure/jsearch/repository.go` | Mapeamento de dados nativos |
-| `internal/infrastructure/theirstack/repository.go` | Mapeamento de dados nativos |
-| `internal/infrastructure/findwork/repository.go` | Mapeamento de dados nativos |
-| `internal/application/job_service.go` | Integração do pipeline |
-| `internal/application/job_service_test.go` | Ajuste para novo parâmetro |
-| `internal/infrastructure/email/notification_service.go` | Badges de dados normalizados |
-| `internal/infrastructure/trello/notification_service.go` | Tags e seção de dados normalizados |
-| `internal/infrastructure/mongodb/repository.go` | Persistência dos novos campos |
-| `cmd/bot/main.go` | Instanciação do pipeline |
+| `internal/infrastructure/providers/ats/client.go` | **Novo** — Interface AtsClient |
+| `internal/infrastructure/providers/ats/repository.go` | **Novo** — Orquestrador concurrente |
+| `internal/infrastructure/providers/ats/catalog.go` | **Novo** — Loader/Resolver de catálogo |
+| `internal/infrastructure/providers/ats/catalog_test.go` | **Novo** — Testes do catálogo |
+| `internal/infrastructure/providers/ats/repository_test.go` | **Novo** — Testes do repositório (falha resiliente) |
+| `internal/infrastructure/providers/ats/greenhouse/greenhouse.go` | **Novo** — Cliente Greenhouse |
+| `internal/infrastructure/providers/ats/greenhouse/greenhouse_test.go` | **Novo** — Testes do cliente Greenhouse |
+| `config/config.go` | +3 env vars, +1 struct (AtsConfig), +1 field (Ats) |
+| `cmd/bot/main.go` | Integração do ATS repository |
+| `catalog/collections.yaml` | **Novo** — Coleções de empresas |
+| `catalog/greenhouse.yaml` | **Novo** — 15 empresas fintech |
+| `catalog/lever.yaml` | **Novo** — Placeholder |
+| `catalog/ashby.yaml` | **Novo** — Placeholder |
+| `profiles.yaml` | Exemplo de configuração ATS |
+| `docs/ATS-SUPPORT-GUIDE.md` | **Novo** — Guia completo de suporte ATS |
 
 ### Como Testar
 
 ```bash
-go test ./internal/domain/normalization/... -v
+go test ./internal/infrastructure/providers/... -v
 go build ./...
 ```

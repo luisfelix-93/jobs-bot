@@ -1,0 +1,41 @@
+collections:
+  fintech:
+    - stripe
+    - plaid
+    - brex
+    - mercury
+    - ramp
+    - alloy
+    - moderntreasury
+    - unit
+    - increase
+    - check
+    - pinwheel
+    - coast
+    - mesh
+    - lithic
+    - adyen
+
+  fintech-payments:
+    - stripe
+    - adyen
+    - moderntreasury
+    - increase
+    - lithic
+
+  fintech-banking:
+    - mercury
+    - unit
+    - plaid
+
+  fintech-startups:
+    - mercury
+    - ramp
+    - alloy
+    - moderntreasury
+    - unit
+    - increase
+    - check
+    - pinwheel
+    - coast
+    - lithic
